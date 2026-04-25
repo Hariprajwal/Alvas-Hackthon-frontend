@@ -1,17 +1,23 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { createScan, getPatients } from "../services/api";
+import { createScan, getPatients, createPatient } from "../services/api";
 
 export default function NewScan() {
   const navigate = useNavigate();
   const [image, setImage] = useState(null);
   const [patientId, setPatientId] = useState("");
   const [patients, setPatients] = useState([]);
+  const [patientSearch, setPatientSearch] = useState("");
   const [symptoms, setSymptoms] = useState([]);
   const [familyHistory, setFamilyHistory] = useState("");
+  const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState(null);
+  // Quick-add patient form
+  const [showAddPatient, setShowAddPatient] = useState(false);
+  const [newPt, setNewPt] = useState({ name:"", age:"", gender:"Male", phone:"", email:"" });
+  const [addingPt, setAddingPt] = useState(false);
 
   // Camera state
   const [cameraMode, setCameraMode] = useState(null);      // null | "dermoscope"
@@ -224,20 +230,109 @@ export default function NewScan() {
               <h3 style={{ ...styles.cardTitle, borderBottom: "none", paddingBottom: 0, margin: 0 }}>Step 1: Patient Selection</h3>
               <button onClick={() => navigate("/ehr-setup")} style={{ background: "var(--c-primary)", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}>+ New Profile</button>
             </div>
+          <div style={styles.card}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"12px", borderBottom:"1px solid var(--c-outline-variant)", paddingBottom:"12px" }}>
+              <h3 style={{ ...styles.cardTitle, borderBottom:"none", paddingBottom:0, margin:0 }}>Step 1: Patient Selection</h3>
+              <button onClick={() => setShowAddPatient(v => !v)} style={{ background: showAddPatient ? "#ef4444" : "var(--c-primary)", color:"#fff", border:"none", padding:"6px 14px", borderRadius:"8px", fontSize:"12px", fontWeight:"700", cursor:"pointer" }}>
+                {showAddPatient ? "✕ Cancel" : "+ New Patient"}
+              </button>
+            </div>
+
+            {/* Quick-add patient inline form */}
+            {showAddPatient && (
+              <div style={{ background:"#f0fdf4", border:"1px solid #86efac", borderRadius:"12px", padding:"16px", marginBottom:"16px" }}>
+                <p style={{ fontWeight:"700", fontSize:"13px", color:"#15803d", margin:"0 0 12px" }}>➕ Add New Patient Record</p>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px" }}>
+                  {[
+                    { key:"name",   label:"Full Name",    type:"text",   required:true },
+                    { key:"age",    label:"Age",          type:"number", required:true },
+                    { key:"phone",  label:"Phone",        type:"text",   required:false },
+                    { key:"email",  label:"Email",        type:"email",  required:false },
+                  ].map(f => (
+                    <div key={f.key}>
+                      <label style={{ fontSize:"11px", fontWeight:"600", color:"var(--text-muted)", display:"block", marginBottom:"4px" }}>
+                        {f.label}{f.required && <span style={{ color:"#ef4444" }}> *</span>}
+                      </label>
+                      <input type={f.type} value={newPt[f.key]} onChange={e => setNewPt(p => ({ ...p, [f.key]: e.target.value }))}
+                        style={{ width:"100%", padding:"8px 10px", borderRadius:"8px", border:"1px solid var(--border-color)", background:"#fff", color:"var(--text-main)", fontSize:"13px", outline:"none", boxSizing:"border-box" }} />
+                    </div>
+                  ))}
+                  <div>
+                    <label style={{ fontSize:"11px", fontWeight:"600", color:"var(--text-muted)", display:"block", marginBottom:"4px" }}>Gender</label>
+                    <select value={newPt.gender} onChange={e => setNewPt(p => ({ ...p, gender: e.target.value }))}
+                      style={{ width:"100%", padding:"8px 10px", borderRadius:"8px", border:"1px solid var(--border-color)", background:"#fff", color:"var(--text-main)", fontSize:"13px", outline:"none" }}>
+                      <option>Male</option><option>Female</option><option>Other</option>
+                    </select>
+                  </div>
+                </div>
+                <button disabled={addingPt || !newPt.name || !newPt.age}
+                  onClick={async () => {
+                    setAddingPt(true);
+                    try {
+                      const res = await createPatient({ name: newPt.name, age: parseInt(newPt.age), gender: newPt.gender, phone: newPt.phone||"", email: newPt.email||"" });
+                      const saved = res.data;
+                      setPatients(prev => [...prev, saved]);
+                      setPatientId(String(saved.id));
+                      setPatientSearch(saved.name);
+                      setShowAddPatient(false);
+                      setNewPt({ name:"", age:"", gender:"Male", phone:"", email:"" });
+                    } catch { setError("Failed to create patient. Please check the details."); }
+                    finally { setAddingPt(false); }
+                  }}
+                  style={{ marginTop:"12px", background:"#16a34a", color:"#fff", border:"none", padding:"9px 20px", borderRadius:"8px", fontWeight:"700", fontSize:"13px", cursor:"pointer", opacity: (addingPt || !newPt.name || !newPt.age) ? 0.6 : 1 }}>
+                  {addingPt ? "Saving..." : "💾 Save & Select Patient"}
+                </button>
+              </div>
+            )}
+
+            {/* Search input */}
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Select Patient</label>
-              <select
-                style={styles.input}
-                value={patientId}
-                onChange={(e) => setPatientId(e.target.value)}
-              >
-                <option value="">-- Choose a patient --</option>
-                {patients.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} (Age: {p.age})
-                  </option>
-                ))}
-              </select>
+              <label style={styles.label}>Search & Select Patient</label>
+              <input
+                type="text"
+                value={patientSearch}
+                onChange={e => { setPatientSearch(e.target.value); setPatientId(""); }}
+                placeholder="Type name to search..."
+                style={{ ...styles.input, marginBottom:"8px" }}
+              />
+              {/* Dropdown list */}
+              {(() => {
+                const filtered = patients.filter(p =>
+                  p.name.toLowerCase().includes(patientSearch.toLowerCase())
+                );
+                if (patients.length === 0) return (
+                  <p style={{ fontSize:"13px", color:"var(--text-muted)", textAlign:"center", padding:"12px 0" }}>
+                    No patients found. Use "+ New Patient" to add one.
+                  </p>
+                );
+                return (
+                  <div style={{ display:"flex", flexDirection:"column", gap:"6px", maxHeight:"220px", overflowY:"auto" }}>
+                    {filtered.length === 0 ? (
+                      <p style={{ fontSize:"13px", color:"var(--text-muted)", padding:"8px 0" }}>No match — try a different name.</p>
+                    ) : filtered.map(p => (
+                      <div key={p.id}
+                        onClick={() => { setPatientId(String(p.id)); setPatientSearch(p.name); }}
+                        style={{
+                          display:"flex", alignItems:"center", gap:"12px", padding:"10px 12px",
+                          borderRadius:"10px", cursor:"pointer", transition:"all 0.15s",
+                          border: `2px solid ${String(patientId) === String(p.id) ? "var(--primary)" : "var(--border-color)"}`,
+                          background: String(patientId) === String(p.id) ? "rgba(0,121,107,0.08)" : "var(--bg-secondary)",
+                        }}>
+                        <div style={{ width:"36px", height:"36px", borderRadius:"50%", background: String(patientId) === String(p.id) ? "var(--primary)" : "#e8eaf6", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"15px", fontWeight:"700", color: String(patientId) === String(p.id) ? "#fff" : "var(--primary)", flexShrink:0 }}>
+                          {p.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div style={{ flex:1 }}>
+                          <p style={{ fontSize:"14px", fontWeight:"700", color:"var(--text-main)", margin:0 }}>{p.name}</p>
+                          <p style={{ fontSize:"11px", color:"var(--text-muted)", margin:"2px 0 0" }}>Age {p.age} · {p.gender}{p.blood_group ? ` · ${p.blood_group}` : ""}</p>
+                        </div>
+                        {String(patientId) === String(p.id) && (
+                          <span style={{ fontSize:"18px", color:"var(--primary)" }}>✓</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
