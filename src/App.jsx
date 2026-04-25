@@ -12,6 +12,8 @@ import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import EHRProfileForm from "./pages/EHRProfileForm";
 import AdminDashboard from "./pages/AdminDashboard";
+import DoctorChat from "./pages/DoctorChat";
+import ImmediateCases from "./pages/ImmediateCases";
 import Layout from "./components/Layout";
 
 // Nurse pages
@@ -21,6 +23,7 @@ import NurseScan from "./pages/nurse/NurseScan";
 import NurseTriage from "./pages/nurse/NurseTriage";
 import NurseInput from "./pages/nurse/NurseInput";
 import NurseResult from "./pages/nurse/NurseResult";
+import NurseChat from "./pages/nurse/NurseChat";
 import NurseSubmit from "./pages/nurse/NurseSubmit";
 
 // Patient pages
@@ -71,6 +74,8 @@ function App() {
         <Route path="/scan" element={<PrivateRoute><RoleRoute allowedRoles={["doctor"]}><NewScan /></RoleRoute></PrivateRoute>} />
         <Route path="/insights" element={<PrivateRoute><RoleRoute allowedRoles={["doctor"]}><Insights /></RoleRoute></PrivateRoute>} />
         <Route path="/admin" element={<PrivateRoute><RoleRoute allowedRoles={["doctor"]}><AdminDashboard /></RoleRoute></PrivateRoute>} />
+        <Route path="/chat" element={<PrivateRoute><RoleRoute allowedRoles={["doctor"]}><DoctorChat /></RoleRoute></PrivateRoute>} />
+        <Route path="/immediate" element={<PrivateRoute><RoleRoute allowedRoles={["doctor"]}><ImmediateCases /></RoleRoute></PrivateRoute>} />
 
         {/* Nurse routes */}
         <Route path="/nurse/dashboard" element={<PrivateRoute><RoleRoute allowedRoles={["nurse"]}><NurseDashboard /></RoleRoute></PrivateRoute>} />
@@ -80,6 +85,7 @@ function App() {
         <Route path="/nurse/input" element={<PrivateRoute><RoleRoute allowedRoles={["nurse"]}><NurseInput /></RoleRoute></PrivateRoute>} />
         <Route path="/nurse/result" element={<PrivateRoute><RoleRoute allowedRoles={["nurse"]}><NurseResult /></RoleRoute></PrivateRoute>} />
         <Route path="/nurse/submit" element={<PrivateRoute><RoleRoute allowedRoles={["nurse"]}><NurseSubmit /></RoleRoute></PrivateRoute>} />
+        <Route path="/nurse/chat" element={<PrivateRoute><RoleRoute allowedRoles={["nurse"]}><NurseChat /></RoleRoute></PrivateRoute>} />
 
         {/* Patient routes */}
         <Route path="/patient/dashboard"    element={<PrivateRoute><RoleRoute allowedRoles={["patient"]}><PatientDashboard    /></RoleRoute></PrivateRoute>} />

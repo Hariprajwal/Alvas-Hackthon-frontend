@@ -83,4 +83,8 @@ export const triagePatient = (patientId, data) => API.patch(`patients/${patientI
 export const getAppointments = () => API.get("appointments/");
 export const createAppointment = (data) => API.post("appointments/", data);
 
+// ── RAG Chat helper ──
+export const sendChatMessage = (message, history = []) =>
+  API.post("chat/", { message, history });
+
 export default API;

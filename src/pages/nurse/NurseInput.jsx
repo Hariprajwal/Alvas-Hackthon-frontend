@@ -151,20 +151,24 @@ export default function NurseInput() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <h3 className="font-headline text-base font-semibold text-on-surface">Additional Notes</h3>
+            <span className="text-xs text-on-surface-variant italic font-normal">( optional )</span>
             <div className="flex bg-surface-container-low rounded-lg p-1">
                 <button onClick={() => setLang("en-US")} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${lang === "en-US" ? "bg-primary text-white" : "text-on-surface-variant hover:text-primary"}`}>EN</button>
                 <button onClick={() => setLang("kn-IN")} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${lang === "kn-IN" ? "bg-primary text-white" : "text-on-surface-variant hover:text-primary"}`}>ಕನ್ನಡ</button>
             </div>
           </div>
-          <button onClick={toggleVoice}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
-              isRecording ? "bg-error-container text-error animate-pulse" : "bg-surface-container-low text-on-surface-variant hover:text-primary"
-            }`}>
-            <span className="material-symbols-outlined text-base" style={{ fontVariationSettings:"'FILL' 1" }}>
-              {isRecording ? "stop_circle" : "mic"}
-            </span>
-            {isRecording ? "Recording..." : "Voice Input"}
-          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-on-surface-variant italic">( optional )</span>
+            <button onClick={toggleVoice}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                isRecording ? "bg-error-container text-error animate-pulse" : "bg-surface-container-low text-on-surface-variant hover:text-primary"
+              }`}>
+              <span className="material-symbols-outlined text-base" style={{ fontVariationSettings:"'FILL' 1" }}>
+                {isRecording ? "stop_circle" : "mic"}
+              </span>
+              {isRecording ? "Recording..." : "Voice Input"}
+            </button>
+          </div>
         </div>
         <textarea rows={4} value={freeText} onChange={e => setFreeText(e.target.value)}
           placeholder="Describe patient history, observations, or special notes..."

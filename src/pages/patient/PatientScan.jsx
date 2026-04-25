@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { createScan, getUserProfile } from "../../services/api";
+import { createScan, getUserProfile, escalateScan } from "../../services/api";
 
 const SYMPTOMS = [
   { id: "Itching", label: "Pruritus (Itching)", desc: "Itching at or around the affected area" },
@@ -75,7 +75,12 @@ export default function PatientScan() {
       if (duration) formData.append("symptom_duration", duration);
       if (familyHistory.trim()) formData.append("family_history", familyHistory.trim());
       const res = await createScan(formData);
-      localStorage.setItem("lastResult", JSON.stringify(res.data));
+      const scanData = res.data;
+      localStorage.setItem("lastResult", JSON.stringify(scanData));
+      // Auto-escalate if HIGH risk
+      if (scanData.risk_category === "HIGH" && scanData.id) {
+        escalateScan(scanData.id, { notes: "Auto-escalated by patient AI scan — HIGH risk detected" }).catch(() => {});
+      }
       setStep(3);
     } catch (err) {
       setError("Analysis failed. Please try again.");
@@ -88,53 +93,90 @@ export default function PatientScan() {
 
   // ── Step 3: Result Screen ──
   if (step === 3 && lastResult) {
-    const cat = lastResult.risk_category || "LOW";
-    const score = lastResult.risk_score || lastResult.confidence || 0;
+    const cat     = lastResult.risk_category || "LOW";
+    const score   = lastResult.risk_score || lastResult.confidence || 0;
     const disease = lastResult.predicted_disease || "Unknown";
-    const cfg = {
-      HIGH:   { color: "#ef4444", bg: "#fee2e2", icon: "🚨", label: "High Risk Detected", action: "Consult a Doctor Immediately" },
-      MEDIUM: { color: "#d97706", bg: "#fef3c7", icon: "⚠️", label: "Moderate Risk Found",  action: "Schedule a Follow-Up" },
-      LOW:    { color: "#16a34a", bg: "#dcfce7", icon: "✅", label: "Low Risk — Stable",     action: "Continue Monitoring" },
-    }[cat] || { color: "#6b7280", bg: "#f1f5f9", icon: "🔬", label: "Analysis Complete", action: "View Details" };
 
-    const layman = {
-      HIGH:   "Your scan shows signs that require urgent medical attention. A dermatologist should examine this lesion as soon as possible.",
-      MEDIUM: "Your scan shows some characteristics that warrant monitoring. Schedule a follow-up visit within the next 2–4 weeks.",
-      LOW:    "Your scan looks stable with no immediate concern. Continue practising sun safety and monitor for any changes.",
-    }[cat] || "Your scan has been analysed. Please consult a doctor for detailed guidance.";
+    // Detect non-skin / unrelated images — consistent with Insights & NurseResult
+    const isAnomaly = ["not skin", "anomaly", "unrelated", "no lesion", "calculating"]
+      .some(kw => disease.toLowerCase().includes(kw));
+
+    const cfg = isAnomaly
+      ? { color: "#94a3b8", bg: "#f1f5f9", icon: "❓", label: "Unable to Assess", action: "" }
+      : ({
+          HIGH:   { color: "#ef4444", bg: "#fee2e2", icon: "🚨", label: "High Risk Detected",  action: "Consult a Doctor Immediately" },
+          MEDIUM: { color: "#d97706", bg: "#fef3c7", icon: "⚠️", label: "Moderate Risk Found", action: "Schedule a Follow-Up" },
+          LOW:    { color: "#16a34a", bg: "#dcfce7", icon: "✅", label: "Low Risk — Stable",    action: "Continue Monitoring" },
+        }[cat] || { color: "#6b7280", bg: "#f1f5f9", icon: "🔬", label: "Analysis Complete", action: "View Details" });
+
+    const layman = isAnomaly
+      ? "The uploaded image does not appear to be a skin lesion. For accurate AI analysis, please upload a clear, close-up photo of the affected skin area."
+      : ({
+          HIGH:   "Your scan shows signs that require urgent medical attention. A dermatologist should examine this lesion as soon as possible.",
+          MEDIUM: "Your scan shows some characteristics that warrant monitoring. Schedule a follow-up visit within the next 2–4 weeks.",
+          LOW:    "Your scan looks stable with no immediate concern. Continue practising sun safety and monitor for any changes.",
+        }[cat] || "Your scan has been analysed. Please consult a doctor for detailed guidance.");
 
     return (
-      <div style={{ maxWidth: "560px", margin: "0 auto", paddingTop: "32px", paddingBottom: "60px" }}>
+      <div style={{ width: "100%", padding: "28px 32px 60px", boxSizing: "border-box" }}>
         <button onClick={() => { setStep(1); setImage(null); setPreview(null); }} style={s.backBtn}>← Back</button>
         <div style={{ ...s.resultCard, borderColor: cfg.color }}>
           <div style={{ textAlign: "center", padding: "32px 24px 24px" }}>
             <div style={{ fontSize: "56px", marginBottom: "12px" }}>{cfg.icon}</div>
             <span style={{ fontSize: "11px", fontWeight: "700", background: cfg.bg, color: cfg.color, padding: "4px 14px", borderRadius: "20px", letterSpacing: "1px" }}>
-              {cat} RISK
+              {isAnomaly ? "NON-SKIN IMAGE" : `${cat} RISK`}
             </span>
-            <h2 style={{ fontSize: "24px", fontWeight: "800", color: "var(--text-main)", margin: "16px 0 8px" }}>{disease}</h2>
+            <h2 style={{ fontSize: "24px", fontWeight: "800", color: "var(--text-main)", margin: "16px 0 8px" }}>{cfg.label}</h2>
             <p style={{ fontSize: "14px", color: "var(--text-muted)", lineHeight: 1.6, margin: 0 }}>{layman}</p>
           </div>
 
-          {/* Score bar */}
+          {/* Score bar — hidden for anomaly, shown with N/A label */}
           <div style={{ padding: "0 24px 24px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px" }}>
               <span>AI Confidence Score</span>
-              <span style={{ fontWeight: "700", color: cfg.color }}>{score.toFixed(1)}%</span>
+              <span style={{ fontWeight: "700", color: cfg.color }}>{isAnomaly ? "N/A" : `${score.toFixed(1)}%`}</span>
             </div>
             <div style={{ height: "10px", background: "#e2e8f0", borderRadius: "5px", overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${score}%`, background: cfg.color, borderRadius: "5px", transition: "width 0.8s" }} />
+              <div style={{ height: "100%", width: isAnomaly ? "50%" : `${score}%`, background: isAnomaly ? "#cbd5e1" : cfg.color, borderRadius: "5px", transition: "width 0.8s", opacity: isAnomaly ? 0.4 : 1 }} />
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "var(--text-muted)", marginTop: "4px" }}>
-              <span>Low Risk</span><span>Moderate</span><span>High Risk</span>
-            </div>
+            {isAnomaly ? (
+              <p style={{ fontSize: "11px", color: "#94a3b8", textAlign: "center", marginTop: "6px", fontStyle: "italic" }}>
+                ⚠ Upload a clear skin lesion image for accurate scoring
+              </p>
+            ) : (
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "var(--text-muted)", marginTop: "4px" }}>
+                <span>Low Risk</span><span>Moderate</span><span>High Risk</span>
+              </div>
+            )}
           </div>
+
 
           {/* Action buttons */}
           <div style={{ padding: "0 24px 32px", display: "flex", flexDirection: "column", gap: "10px" }}>
+            {cat === "HIGH" && !isAnomaly && (
+              <div style={{ background: "linear-gradient(135deg,#fee2e2,#fecaca)", border: "2px solid #ef4444", borderRadius: "16px", padding: "16px 18px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+                  <span style={{ fontSize: "22px" }}>⚡</span>
+                  <div>
+                    <p style={{ fontWeight: "800", color: "#991b1b", margin: 0, fontSize: "13px" }}>AUTO-REPORTED TO DOCTOR</p>
+                    <p style={{ fontSize: "11px", color: "#7f1d1d", margin: 0 }}>Your case has been automatically sent to the immediate queue.</p>
+                  </div>
+                </div>
+                {lastResult?.id && (
+                  <div style={{ background: "#fff", borderRadius: "10px", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div>
+                      <p style={{ fontSize: "9px", color: "#64748b", fontWeight: "700", margin: "0 0 2px", textTransform: "uppercase" }}>Reference Order ID</p>
+                      <p style={{ fontSize: "18px", fontWeight: "800", color: "#dc2626", margin: 0, fontFamily: "monospace" }}>GV-{String(lastResult.id).padStart(5, "0")}</p>
+                    </div>
+                    <span style={{ fontSize: "20px" }}>🚨</span>
+                  </div>
+                )}
+                <p style={{ fontSize: "11px", color: "#7f1d1d", margin: "8px 0 0" }}>Please quote your Order ID when speaking with your doctor.</p>
+              </div>
+            )}
             {cat === "HIGH" && (
               <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: "12px", padding: "14px 16px", textAlign: "center" }}>
-                <p style={{ fontWeight: "700", color: "#dc2626", margin: "0 0 4px 0" }}>⚡ Immediate Consultation Required</p>
+                <p style={{ fontWeight: "700", color: "#dc2626", margin: "0 0 4px" }}>⚡ Immediate Consultation Required</p>
                 <p style={{ fontSize: "12px", color: "#7f1d1d", margin: 0 }}>Please visit a dermatologist or skin specialist as soon as possible.</p>
               </div>
             )}
@@ -162,7 +204,7 @@ export default function PatientScan() {
 
   // ── Step 2: Upload Image ──
   if (step === 2) return (
-    <div style={{ maxWidth: "560px", margin: "0 auto", paddingTop: "32px", paddingBottom: "60px" }}>
+    <div style={{ width: "100%", padding: "28px 32px 60px", boxSizing: "border-box", maxWidth: "680px" }}>
       <button onClick={() => setStep(1)} style={s.backBtn}>← Back to Symptoms</button>
       <h2 style={s.pageTitle}>Upload Skin Image</h2>
       <p style={s.pageSubtitle}>Please photograph the affected area clearly in good lighting.</p>
@@ -197,9 +239,8 @@ export default function PatientScan() {
     </div>
   );
 
-  // ── Step 1: Symptoms ──
   return (
-    <div style={{ maxWidth: "560px", margin: "0 auto", paddingTop: "32px", paddingBottom: "60px" }}>
+    <div style={{ width: "100%", padding: "28px 32px 60px", boxSizing: "border-box", maxWidth: "680px" }}>
       <button onClick={() => navigate("/patient/dashboard")} style={s.backBtn}>← Back</button>
 
       {/* Progress */}
@@ -295,7 +336,7 @@ export default function PatientScan() {
 
 const s = {
   backBtn: { background: "none", border: "none", color: "var(--text-muted)", fontWeight: "600", cursor: "pointer", fontSize: "14px", padding: "0 0 20px 0", fontFamily: "'Lexend', sans-serif", display: "block" },
-  pageTitle: { fontSize: "26px", fontWeight: "800", color: "var(--text-main)", margin: "0 0 8px 0", letterSpacing: "-0.5px" },
+  pageTitle: { fontSize: "28px", fontWeight: "800", color: "var(--text-main)", margin: "0 0 8px 0", letterSpacing: "-0.5px" },
   pageSubtitle: { fontSize: "14px", color: "var(--text-muted)", margin: "0 0 28px 0", lineHeight: 1.6 },
   errorBox: { background: "#fee2e2", color: "#dc2626", padding: "12px 16px", borderRadius: "10px", fontSize: "14px", marginBottom: "20px" },
   optTag: { fontSize: "11px", fontWeight: "600", color: "#6b7280", background: "#f3f4f6", padding: "3px 8px", borderRadius: "8px" },
