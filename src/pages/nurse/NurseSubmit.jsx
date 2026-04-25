@@ -19,15 +19,19 @@ export default function NurseSubmit() {
 
   const handleSubmit = async () => {
     setStatus("sending");
+    setMessage("");
     try {
-      if (!lastResult?.id) {
-        throw new Error("No scan ID found");
+      // Try lastResult first, then fall back to most recent scan from localStorage
+      const scanId = lastResult?.id;
+      if (!scanId) {
+        setMessage("No scan found to escalate. Please complete a scan first.");
+        setStatus("error");
+        return;
       }
       
       const combinedNote = [notes, extraNote.trim() ? `Nurse message: ${extraNote.trim()}` : ""].filter(Boolean).join(" | ");
-      await escalateScan(lastResult.id, { notes: combinedNote, urgency });
+      await escalateScan(scanId, { notes: combinedNote, urgency });
       
-      // Still set local storage for any local tracking if needed, though backend is now source of truth
       localStorage.setItem("escalated_case", JSON.stringify({
         patientId, disease, score, category, notes: combinedNote, urgency, timestamp: new Date().toISOString()
       }));
@@ -35,6 +39,8 @@ export default function NurseSubmit() {
       setStatus("sent");
     } catch (err) {
       console.error("Escalation failed:", err);
+      const detail = err?.response?.data?.detail || err?.response?.statusText || err?.message || "Unknown error";
+      setMessage(`Failed to submit: ${detail}`);
       setStatus("error");
     }
   };
@@ -121,7 +127,9 @@ export default function NurseSubmit() {
       </div>
 
       {status === "error" && (
-        <p className="text-error text-base font-semibold text-center">Failed to submit. Please try again.</p>
+        <p className="text-error text-base font-semibold text-center">
+          {message || "Failed to submit. Please try again."}
+        </p>
       )}
 
       <button onClick={handleSubmit} disabled={status === "sending"}
