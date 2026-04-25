@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { sendChatMessage } from "../../services/api";
 import { cleanResponse } from "../../utils/cleanResponse";
+import { useLang } from "../../context/LanguageContext";
+import tr from "../../i18n/translations";
 
 const INITIAL_MESSAGE = {
   from: "ai",
@@ -20,6 +22,15 @@ const QUICK_REPLIES = [
 
 export default function PatientChat() {
   const navigate = useNavigate();
+  const { lang } = useLang();
+  const tx = tr[lang].patient;
+
+  const INITIAL_MESSAGE = {
+    from: "ai",
+    text: tx.chatGreeting,
+    contextUsed: false,
+  };
+
   const [messages, setMessages] = useState([INITIAL_MESSAGE]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -27,6 +38,11 @@ export default function PatientChat() {
   const [error, setError] = useState("");
   const bottomRef = useRef(null);
   const recognitionRef = useRef(null);
+
+  // Reset greeting when language changes
+  useEffect(() => {
+    setMessages([{ from:"ai", text: tr[lang].patient.chatGreeting, contextUsed:false }]);
+  }, [lang]);
 
   // Build history array for context — last 6 messages only
   const buildHistory = (msgs) =>
@@ -45,6 +61,7 @@ export default function PatientChat() {
       const rec = new SR();
       rec.continuous = false;
       rec.interimResults = false;
+      rec.lang = tx.chatVoiceLang || "en-US";
       rec.onresult = (e) => {
         const transcript = e.results[0][0].transcript;
         setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));

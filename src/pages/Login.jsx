@@ -1,9 +1,13 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { loginUser } from "../services/api";
+import { useLang } from "../context/LanguageContext";
+import t, { LANGUAGES } from "../i18n/translations";
 
 export default function Login() {
   const navigate = useNavigate();
+  const { lang, setLang } = useLang();
+  const tr = t[lang].auth;
   const [form, setForm]       = useState({ username: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
@@ -22,10 +26,15 @@ export default function Login() {
       localStorage.setItem("user_id",       data.user_id);
       localStorage.setItem("user_role",     data.role);
       
-      navigate("/dashboard");
+      const dest = { doctor:"/dashboard", nurse:"/nurse/dashboard", patient:"/patient/dashboard" };
+      navigate(dest[data.role] || "/dashboard");
     } catch (err) {
       console.error(err);
-      setError("Invalid username or password.");
+      let errorMsg = "Invalid username or password.";
+      if (err.response && err.response.data && err.response.data.error) {
+        errorMsg = err.response.data.error;
+      }
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -88,9 +97,23 @@ export default function Login() {
         width: 480, display:"flex", flexDirection:"column", justifyContent:"center",
         padding:"60px 56px", backgroundColor:"var(--c-background)", overflowY:"auto",
       }}>
-        <div style={{ marginBottom:40 }}>
-          <p style={{ color:"var(--c-on-surface-variant)", fontSize:13, fontWeight:600, letterSpacing:2, textTransform:"uppercase", marginBottom:10 }}>Welcome back</p>
-          <h2 style={{ color:"var(--c-on-surface)", fontSize:34, fontWeight:800, margin:0, letterSpacing:"-0.5px", lineHeight:1.2 }}>Sign in to<br />your account</h2>
+        <div style={{ marginBottom:28 }}>
+          {/* Language selector */}
+          <div style={{ display:"flex", gap:6, marginBottom:28, flexWrap:"wrap" }}>
+            {LANGUAGES.map(l => (
+              <button key={l.code} onClick={() => l.available && setLang(l.code)} type="button"
+                title={l.available ? l.label : "Coming Soon"}
+                style={{ padding:"5px 12px", borderRadius:20, fontSize:12, fontWeight:700,
+                  border:`1.5px solid ${lang===l.code ? "var(--c-primary)" : "var(--c-outline-variant)"}`,
+                  background: lang===l.code ? "var(--c-primary-container)" : "transparent",
+                  color: lang===l.code ? "var(--c-primary)" : l.available ? "var(--c-on-surface-variant)" : "var(--c-outline)",
+                  cursor: l.available ? "pointer" : "not-allowed", transition:"all 0.2s" }}>
+                {l.flag} {l.label}{!l.available && <span style={{ fontSize:9, marginLeft:3 }}>Soon</span>}
+              </button>
+            ))}
+          </div>
+          <p style={{ color:"var(--c-on-surface-variant)", fontSize:13, fontWeight:600, letterSpacing:2, textTransform:"uppercase", marginBottom:10 }}>{tr.loginSub}</p>
+          <h2 style={{ color:"var(--c-on-surface)", fontSize:34, fontWeight:800, margin:0, letterSpacing:"-0.5px", lineHeight:1.2 }}>{tr.loginTitle}</h2>
         </div>
 
         {error && (
@@ -102,7 +125,7 @@ export default function Login() {
         <form onSubmit={handleLogin} style={{ display:"flex", flexDirection:"column", gap:20 }}>
           {/* Username */}
           <div>
-            <label style={{ display:"block", fontSize:13, fontWeight:600, color:"var(--c-on-surface-variant)", marginBottom:8 }}>Username</label>
+            <label style={{ display:"block", fontSize:13, fontWeight:600, color:"var(--c-on-surface-variant)", marginBottom:8 }}>{tr.usernameLabel}</label>
             <div style={{ position:"relative" }}>
               <span className="material-symbols-outlined" style={{ position:"absolute", left:16, top:"50%", transform:"translateY(-50%)", color:"var(--c-outline)", fontSize:20 }}>person</span>
               <input
@@ -124,7 +147,7 @@ export default function Login() {
 
           {/* Password */}
           <div>
-            <label style={{ display:"block", fontSize:13, fontWeight:600, color:"var(--c-on-surface-variant)", marginBottom:8 }}>Password</label>
+            <label style={{ display:"block", fontSize:13, fontWeight:600, color:"var(--c-on-surface-variant)", marginBottom:8 }}>{tr.passwordLabel}</label>
             <div style={{ position:"relative" }}>
               <span className="material-symbols-outlined" style={{ position:"absolute", left:16, top:"50%", transform:"translateY(-50%)", color:"var(--c-outline)", fontSize:20 }}>lock</span>
               <input
@@ -149,57 +172,7 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Role selector (quick login demo) */}
-          <div style={{ background:"var(--c-surface-container)", borderRadius:14, padding:"12px 16px" }}>
-            <p style={{ color:"var(--c-on-surface-variant)", fontSize:12, fontWeight:600, marginBottom:10, letterSpacing:1, textTransform:"uppercase" }}>Sign in as (Demo)</p>
-            <div style={{ display:"flex", gap:8 }}>
-              {[
-                { role:"doctor",  label:"Doctor",       icon:"stethoscope" },
-                { role:"nurse",   label:"Health Worker", icon:"medical_services" },
-                { role:"patient", label:"Patient",       icon:"person" },
-              ].map(r => (
-                <button key={r.role} type="button"
-                  onClick={async () => {
-                    setLoading(true);
-                    setError("");
-                    try {
-                      // Demo credentials from populate_db.py
-                      const creds = {
-                        doctor: { username: "doctor",  password: "password123" },
-                        nurse:  { username: "nurse",   password: "password123" },
-                        patient: { username: "patient", password: "password123" },
-                      };
-                      const res = await loginUser(creds[r.role]);
-                      const data = res.data.data;
-                      localStorage.setItem("access_token",  data.access);
-                      localStorage.setItem("refresh_token", data.refresh);
-                      localStorage.setItem("user_name",     data.user_name);
-                      localStorage.setItem("user_id",       data.user_id);
-                      localStorage.setItem("user_role",     data.role);
-                      const dest = { doctor:"/dashboard", nurse:"/nurse/dashboard", patient:"/patient/dashboard" };
-                      navigate(dest[r.role]);
-                    } catch (err) {
-                      console.error(err);
-                      setError("Demo login failed. Ensure database is populated.");
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-                  style={{
-                    flex:1, padding:"10px 8px", borderRadius:10,
-                    border:"2px solid var(--c-outline-variant)", background:"var(--c-surface-container-low)",
-                    cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:4,
-                    transition:"all 0.2s",
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor="var(--c-primary)"; e.currentTarget.style.background="var(--c-primary-container)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor="var(--c-outline-variant)"; e.currentTarget.style.background="var(--c-surface-container-low)"; }}
-                >
-                  <span className="material-symbols-outlined" style={{ color:"var(--c-primary)", fontSize:20, fontVariationSettings:"'FILL' 1" }}>{r.icon}</span>
-                  <span style={{ fontSize:11, fontWeight:600, color:"var(--c-on-surface)", textAlign:"center", lineHeight:1.2 }}>{r.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+
 
           {/* Submit */}
           <button id="login-submit" type="submit" disabled={loading}
@@ -213,14 +186,14 @@ export default function Login() {
             }}
           >
             {loading
-              ? <><span className="material-symbols-outlined" style={{ fontSize:20, animation:"spin 1s linear infinite" }}>refresh</span> Signing in...</>
-              : <><span className="material-symbols-outlined" style={{ fontSize:20 }}>login</span> Sign In</>}
+              ? <><span className="material-symbols-outlined" style={{ fontSize:20, animation:"spin 1s linear infinite" }}>refresh</span> {tr.loggingIn}</>
+              : <><span className="material-symbols-outlined" style={{ fontSize:20 }}>login</span> {tr.loginBtn}</>}
           </button>
         </form>
 
         <p style={{ color:"var(--c-on-surface-variant)", textAlign:"center", marginTop:28, fontSize:14 }}>
-          Don't have an account?{" "}
-          <Link to="/register" style={{ color:"var(--c-primary)", fontWeight:700, textDecoration:"none" }}>Create one</Link>
+          {tr.noAccount}{" "}
+          <Link to="/register" style={{ color:"var(--c-primary)", fontWeight:700, textDecoration:"none" }}>{tr.registerLink}</Link>
         </p>
 
         <p style={{ color:"var(--c-outline)", textAlign:"center", marginTop:40, fontSize:12 }}>

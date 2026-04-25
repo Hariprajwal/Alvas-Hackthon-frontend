@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getScans, getUserProfile } from "../../services/api";
+import { useLang } from "../../context/LanguageContext";
+import tr from "../../i18n/translations";
 
 export default function PatientDashboard() {
   const navigate = useNavigate();
+  const { lang } = useLang();
+  const tx = tr[lang].patient;
   const [scans, setScans] = useState([]);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -44,20 +48,20 @@ export default function PatientDashboard() {
       {/* Hero */}
       <div style={s.hero}>
         <div style={s.heroLeft}>
-          <p style={s.heroTag}>My Health Portal</p>
-          <h1 style={s.heroTitle}>Good day, {userName} 👋</h1>
+          <p style={s.heroTag}>{lang === "kn" ? "ನನ್ನ ಆರೋಗ್ಯ ಪೋರ್ಟಲ್" : "My Health Portal"}</p>
+          <h1 style={s.heroTitle}>{lang === "kn" ? `ನಮಸ್ಕಾರ, ${userName} 👋` : `Good day, ${userName} 👋`}</h1>
           <p style={s.heroSub}>
             {highRisk > 0
-              ? <span>You have <strong style={{ color: "#fca5a5" }}>{highRisk} result(s)</strong> that need attention.</span>
-              : "Your recent scans look stable. Keep monitoring."}
+              ? <span>{lang === "kn" ? "ನಿಮಗೆ ಗಮನ ಹರಿಸಬೇಕಾದ" : "You have"} <strong style={{ color: "#fca5a5" }}>{highRisk} {lang === "kn" ? "ಫಲಿತಾಂಶ(ಗಳು) ಇವೆ." : "result(s)"}</strong> {lang === "kn" ? "" : "that need attention."}</span>
+              : lang === "kn" ? "ನಿಮ್ಮ ಇತ್ತೀಚಿನ ಸ್ಕ್ಯಾನ್‌ಗಳು ಸ್ಥಿರವಾಗಿವೆ. ನಿಗಾ ವಹಿಸಿ." : "Your recent scans look stable. Keep monitoring."}
           </p>
         </div>
         <div style={s.heroActions}>
           <button onClick={() => navigate("/patient/scan")} style={s.btnPrimary}>
-            🔬 Start New Scan
+            🔬 {lang === "kn" ? "ಹೊಸ ಸ್ಕ್ಯಾನ್ ಪ್ರಾರಂಭಿಸಿ" : "Start New Scan"}
           </button>
           <button onClick={() => navigate("/patient/chat")} style={s.btnOutline}>
-            💬 Talk to AI Assistant
+            💬 {lang === "kn" ? "AI ಸಹಾಯಕರೊಂದಿಗೆ ಮಾತನಾಡಿ" : "Talk to AI Assistant"}
           </button>
         </div>
       </div>

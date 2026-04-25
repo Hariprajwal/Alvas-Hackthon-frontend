@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { registerUser } from "../services/api";
+import { useLang } from "../context/LanguageContext";
+import t, { LANGUAGES } from "../i18n/translations";
 
 const ROLES = [
   { role:"doctor",  label:"Doctor",        icon:"stethoscope",      desc:"Clinical review & AI analysis" },
@@ -10,6 +12,8 @@ const ROLES = [
 
 export default function Register() {
   const navigate = useNavigate();
+  const { lang, setLang } = useLang();
+  const tr = t[lang].auth;
   const [form, setForm]       = useState({ username:"", email:"", password:"", confirmPassword:"", role:"doctor" });
   const [showPw, setShowPw]   = useState(false);
   const [loading, setLoading] = useState(false);
@@ -39,7 +43,15 @@ export default function Register() {
       navigate(dest[data.role] || "/dashboard");
     } catch (err) {
       console.error(err);
-      alert("Registration failed. Please try a different username.");
+      let errorMsg = "Registration failed. Please try a different username.";
+      if (err.response && err.response.data && err.response.data.error) {
+        if (typeof err.response.data.error === 'object') {
+          errorMsg = Object.values(err.response.data.error).flat().join(" | ");
+        } else {
+          errorMsg = err.response.data.error;
+        }
+      }
+      alert(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -102,7 +114,7 @@ export default function Register() {
                   <span className="material-symbols-outlined" style={{ color:"#fff", fontSize:20, fontVariationSettings:"'FILL' 1" }}>{r.icon}</span>
                 </div>
                 <div>
-                  <p style={{ color:"#fff", fontSize:14, fontWeight:700, margin:0 }}>{r.label}</p>
+                  <p style={{ color:"#fff", fontSize:14, fontWeight:700, margin:0 }}>{r.role === 'doctor' ? tr.roleDoctor : r.role === 'nurse' ? tr.roleNurse : tr.rolePatient}</p>
                   <p style={{ color:"rgba(255,255,255,0.65)", fontSize:12, margin:0 }}>{r.desc}</p>
                 </div>
                 {form.role===r.role && (
@@ -120,14 +132,28 @@ export default function Register() {
         padding:"50px 56px", backgroundColor:"var(--c-background)", overflowY:"auto",
       }}>
         <div style={{ marginBottom:36 }}>
-          <p style={{ color:"var(--c-on-surface-variant)", fontSize:13, fontWeight:600, letterSpacing:2, textTransform:"uppercase", marginBottom:10 }}>Get started</p>
-          <h2 style={{ color:"var(--c-on-surface)", fontSize:32, fontWeight:800, margin:0, letterSpacing:"-0.5px", lineHeight:1.2 }}>Create your<br />account</h2>
+          {/* Language selector */}
+          <div style={{ display:"flex", gap:6, marginBottom:28, flexWrap:"wrap" }}>
+            {LANGUAGES.map(l => (
+              <button key={l.code} onClick={() => l.available && setLang(l.code)} type="button"
+                title={l.available ? l.label : "Coming Soon"}
+                style={{ padding:"5px 12px", borderRadius:20, fontSize:12, fontWeight:700,
+                  border:`1.5px solid ${lang===l.code ? "var(--c-primary)" : "var(--c-outline-variant)"}`,
+                  background: lang===l.code ? "var(--c-primary-container)" : "transparent",
+                  color: lang===l.code ? "var(--c-primary)" : l.available ? "var(--c-on-surface-variant)" : "var(--c-outline)",
+                  cursor: l.available ? "pointer" : "not-allowed", transition:"all 0.2s" }}>
+                {l.flag} {l.label}{!l.available && <span style={{ fontSize:9, marginLeft:3 }}>Soon</span>}
+              </button>
+            ))}
+          </div>
+          <p style={{ color:"var(--c-on-surface-variant)", fontSize:13, fontWeight:600, letterSpacing:2, textTransform:"uppercase", marginBottom:10 }}>{tr.registerSub}</p>
+          <h2 style={{ color:"var(--c-on-surface)", fontSize:32, fontWeight:800, margin:0, letterSpacing:"-0.5px", lineHeight:1.2 }}>{tr.registerTitle}</h2>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display:"flex", flexDirection:"column", gap:16 }}>
           {/* Username */}
           <div>
-            <label style={{ display:"block", fontSize:13, fontWeight:600, color:"var(--c-on-surface-variant)", marginBottom:7 }}>Username</label>
+            <label style={{ display:"block", fontSize:13, fontWeight:600, color:"var(--c-on-surface-variant)", marginBottom:7 }}>{tr.usernameLabel}</label>
             <div style={{ position:"relative" }}>
               <span className="material-symbols-outlined" style={{ position:"absolute", left:16, top:"50%", transform:"translateY(-50%)", color:"var(--c-outline)", fontSize:20 }}>badge</span>
               <input id="register-username" value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder="johndoe" style={inputStyle}
@@ -137,7 +163,7 @@ export default function Register() {
 
           {/* Email */}
           <div>
-            <label style={{ display:"block", fontSize:13, fontWeight:600, color:"var(--c-on-surface-variant)", marginBottom:7 }}>Email Address</label>
+            <label style={{ display:"block", fontSize:13, fontWeight:600, color:"var(--c-on-surface-variant)", marginBottom:7 }}>{tr.emailLabel}</label>
             <div style={{ position:"relative" }}>
               <span className="material-symbols-outlined" style={{ position:"absolute", left:16, top:"50%", transform:"translateY(-50%)", color:"var(--c-outline)", fontSize:20 }}>mail</span>
               <input id="register-email" type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="email@clinic.com" style={inputStyle}
@@ -147,7 +173,7 @@ export default function Register() {
 
           {/* Password */}
           <div>
-            <label style={{ display:"block", fontSize:13, fontWeight:600, color:"var(--c-on-surface-variant)", marginBottom:7 }}>Password</label>
+            <label style={{ display:"block", fontSize:13, fontWeight:600, color:"var(--c-on-surface-variant)", marginBottom:7 }}>{tr.passwordLabel}</label>
             <div style={{ position:"relative" }}>
               <span className="material-symbols-outlined" style={{ position:"absolute", left:16, top:"50%", transform:"translateY(-50%)", color:"var(--c-outline)", fontSize:20 }}>lock</span>
               <input id="register-password" type={showPw?"text":"password"} value={form.password}
@@ -172,12 +198,12 @@ export default function Register() {
 
           {/* Role selector */}
           <div>
-            <label style={{ display:"block", fontSize:13, fontWeight:600, color:"var(--c-on-surface-variant)", marginBottom:7 }}>Role</label>
+            <label style={{ display:"block", fontSize:13, fontWeight:600, color:"var(--c-on-surface-variant)", marginBottom:7 }}>{tr.roleLabel}</label>
             <div style={{ position:"relative" }}>
               <span className="material-symbols-outlined" style={{ position:"absolute", left:16, top:"50%", transform:"translateY(-50%)", color:"var(--c-outline)", fontSize:20 }}>work</span>
               <select id="register-role" value={form.role} onChange={e=>setForm({...form,role:e.target.value})}
                 style={{...inputStyle, appearance:"none", paddingLeft:48, cursor:"pointer"}}>
-                {ROLES.map(r => <option key={r.role} value={r.role}>{r.label}</option>)}
+                {ROLES.map(r => <option key={r.role} value={r.role}>{r.role === 'doctor' ? tr.roleDoctor : r.role === 'nurse' ? tr.roleNurse : tr.rolePatient}</option>)}
               </select>
             </div>
           </div>
@@ -194,14 +220,14 @@ export default function Register() {
             }}
           >
             {loading
-              ? <><span className="material-symbols-outlined" style={{ fontSize:20 }}>refresh</span> Creating...</>
-              : <><span className="material-symbols-outlined" style={{ fontSize:20 }}>person_add</span> Create Account</>}
+              ? <><span className="material-symbols-outlined" style={{ fontSize:20 }}>refresh</span> {tr.registering}</>
+              : <><span className="material-symbols-outlined" style={{ fontSize:20 }}>person_add</span> {tr.registerBtn}</>}
           </button>
         </form>
 
         <p style={{ color:"var(--c-on-surface-variant)", textAlign:"center", marginTop:24, fontSize:14 }}>
-          Already have an account?{" "}
-          <Link to="/login" style={{ color:"var(--c-primary)", fontWeight:700, textDecoration:"none" }}>Sign in</Link>
+          {tr.haveAccount}{" "}
+          <Link to="/login" style={{ color:"var(--c-primary)", fontWeight:700, textDecoration:"none" }}>{tr.loginLink}</Link>
         </p>
 
         <p style={{ color:"var(--c-outline)", textAlign:"center", marginTop:36, fontSize:12 }}>

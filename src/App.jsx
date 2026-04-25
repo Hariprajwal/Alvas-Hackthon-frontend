@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { LanguageProvider } from "./context/LanguageContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -60,6 +62,8 @@ function App() {
   }, []);
 
   return (
+    <ThemeProvider>
+    <LanguageProvider>
     <BrowserRouter>
       <Routes>
         {/* Public routes */}
@@ -100,6 +104,8 @@ function App() {
         <Route path="/ehr-setup" element={<PrivateRoute><EHRProfileForm /></PrivateRoute>} />
       </Routes>
     </BrowserRouter>
+    </LanguageProvider>
+    </ThemeProvider>
   );
 }
 

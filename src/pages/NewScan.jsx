@@ -226,11 +226,6 @@ export default function NewScan() {
         {/* Right: Form (Patient & Clinical Data) */}
         <div style={styles.rightColumn}>
           <div style={styles.card}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", borderBottom: "1px solid var(--c-outline-variant)", paddingBottom: "12px" }}>
-              <h3 style={{ ...styles.cardTitle, borderBottom: "none", paddingBottom: 0, margin: 0 }}>Step 1: Patient Selection</h3>
-              <button onClick={() => navigate("/ehr-setup")} style={{ background: "var(--c-primary)", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}>+ New Profile</button>
-            </div>
-          <div style={styles.card}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"12px", borderBottom:"1px solid var(--c-outline-variant)", paddingBottom:"12px" }}>
               <h3 style={{ ...styles.cardTitle, borderBottom:"none", paddingBottom:0, margin:0 }}>Step 1: Patient Selection</h3>
               <button onClick={() => setShowAddPatient(v => !v)} style={{ background: showAddPatient ? "#ef4444" : "var(--c-primary)", color:"#fff", border:"none", padding:"6px 14px", borderRadius:"8px", fontSize:"12px", fontWeight:"700", cursor:"pointer" }}>

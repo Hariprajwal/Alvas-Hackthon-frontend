@@ -2,8 +2,25 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { sendChatMessage } from "../services/api";
 import { cleanResponse } from "../utils/cleanResponse";
+import { useLang } from "../context/LanguageContext";
+import tr from "../i18n/translations";
 
-const DOCTOR_SYSTEM_PROMPT = `You are GenVeda Clinical AI, a medical decision-support assistant for licensed physicians.
+export default function DoctorChat() {
+  const navigate = useNavigate();
+  const { lang } = useLang();
+  const tx = tr[lang].doctor;
+
+  const DOCTOR_SYSTEM_PROMPT = lang === "kn" 
+    ? `You are GenVeda Clinical AI, a medical decision-support assistant for licensed physicians.
+Reply strictly in Kannada. Use professional yet simple Kannada that is easy for doctors in local clinics to understand.
+Help with: differential diagnosis, evidence-based treatment protocols (AAD/NICE/WHO guidelines), drug interactions, dermoscopy interpretation, histopathology concepts, and clinical documentation.
+Use precise medical terminology where necessary, but keep the prose in Kannada. Always note when multidisciplinary team discussion is warranted. Remind the physician that clinical judgement supersedes AI recommendations.
+CRITICAL FORMATTING RULES:
+- Write in plain prose only. No markdown whatsoever.
+- No asterisks (*), no hash symbols (#), no pipe characters (|), no triple dashes (---), no backticks.
+- For numbered steps or lists use: 1. Item  2. Item  or plain dashes: - Item
+- Write as if presenting a clinical case summary verbally.`
+    : `You are GenVeda Clinical AI, a medical decision-support assistant for licensed physicians.
 Help with: differential diagnosis, evidence-based treatment protocols (AAD/NICE/WHO guidelines), drug interactions, dermoscopy interpretation, histopathology concepts, and clinical documentation.
 Use precise medical terminology. Always note when multidisciplinary team discussion is warranted. Remind the physician that clinical judgement supersedes AI recommendations.
 
@@ -13,18 +30,8 @@ CRITICAL FORMATTING RULES:
 - For numbered steps or lists use: 1. Item  2. Item  or plain dashes: - Item
 - Write as if presenting a clinical case summary verbally.`;
 
-const INIT_MSG = { from: "ai", contextUsed: false, text: "Hello Doctor! I'm GenVeda Clinical AI 🩺\n\nI assist with differential diagnosis, treatment protocols, drug interactions, and dermoscopy guidelines.\n\nWhat clinical question can I help with today?" };
+  const INIT_MSG = { from: "ai", contextUsed: false, text: tx.chatGreeting };
 
-const QUICK = [
-  "Differential diagnosis: melanoma vs benign nevus",
-  "ABCDE criteria — clinical interpretation",
-  "First-line treatment for basal cell carcinoma",
-  "Dermoscopy patterns for seborrheic keratosis",
-  "When to refer to oncology for skin lesions?",
-];
-
-export default function DoctorChat() {
-  const navigate = useNavigate();
   const [msgs, setMsgs] = useState([INIT_MSG]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
@@ -34,14 +41,19 @@ export default function DoctorChat() {
   const recRef = useRef(null);
 
   useEffect(() => {
+    setMsgs([{ from: "ai", contextUsed: false, text: tr[lang].doctor.chatGreeting }]);
+  }, [lang]);
+
+  useEffect(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SR) {
       const r = new SR();
+      r.lang = tx.voiceLang || "en-US";
       r.onresult = e => { setInput(p => p ? `${p} ${e.results[0][0].transcript}` : e.results[0][0].transcript); setRecording(false); };
       r.onend = () => setRecording(false);
       recRef.current = r;
     }
-  }, []);
+  }, [tx.voiceLang]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, typing]);
 
@@ -117,7 +129,7 @@ export default function DoctorChat() {
 
       {msgs.length <= 2 && !typing && (
         <div style={{ display:"flex", flexWrap:"wrap", gap:"8px", padding:"8px 0 4px", flexShrink:0 }}>
-          {QUICK.map(r => <button key={r} onClick={() => send(r)} style={{ background:"var(--card-bg)", border:"1px solid var(--border-color)", borderRadius:"20px", padding:"7px 14px", fontSize:"12px", fontWeight:"600", cursor:"pointer", color:"var(--text-main)", fontFamily:"'Lexend', sans-serif" }}>{r}</button>)}
+          {tx.chatChips.map(r => <button key={r} onClick={() => send(r)} style={{ background:"var(--card-bg)", border:"1px solid var(--border-color)", borderRadius:"20px", padding:"7px 14px", fontSize:"12px", fontWeight:"600", cursor:"pointer", color:"var(--text-main)", fontFamily:"'Lexend', sans-serif" }}>{r}</button>)}
         </div>
       )}
 
@@ -130,7 +142,7 @@ export default function DoctorChat() {
             </button>
             <span style={{ fontSize:"9px", color:"#94a3b8", fontStyle:"italic" }}>( optional )</span>
           </div>
-          <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); send(input); } }} placeholder="Ask a clinical question — differential, protocol, drug interaction..." disabled={typing}
+          <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); send(input); } }} placeholder={tx.chatPlaceholder} disabled={typing}
             style={{ flex:1, padding:"11px 16px", borderRadius:"24px", border:"2px solid var(--border-color)", background:"var(--bg-secondary)", color:"var(--text-main)", fontSize:"14px", outline:"none", fontFamily:"'Lexend', sans-serif" }} />
           <button onClick={() => send(input)} disabled={!input.trim() || typing} style={{ width:"44px", height:"44px", borderRadius:"50%", background:"#1a237e", color:"#fff", border:"none", cursor:"pointer", fontSize:"18px", display:"flex", alignItems:"center", justifyContent:"center", opacity:(!input.trim() || typing)?0.5:1 }}>➤</button>
         </div>

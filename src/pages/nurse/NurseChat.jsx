@@ -2,8 +2,25 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { sendChatMessage } from "../../services/api";
 import { cleanResponse } from "../../utils/cleanResponse";
+import { useLang } from "../../context/LanguageContext";
+import tr from "../../i18n/translations";
 
-const NURSE_SYSTEM_PROMPT = `You are GenVeda Care AI, a clinical support assistant for nursing staff.
+export default function NurseChat() {
+  const navigate = useNavigate();
+  const { lang } = useLang();
+  const tx = tr[lang].nurse;
+
+  const NURSE_SYSTEM_PROMPT = lang === "kn" 
+    ? `You are GenVeda Care AI, a clinical support assistant for nursing staff.
+Reply strictly in Kannada. Use everyday, simple Kannada that is easy for local staff to understand. Avoid overly complex medical jargon, but remain accurate. 
+Help with: wound assessment, symptom documentation, medication administration protocols, vital sign interpretation, patient monitoring, escalation criteria, and triage decision support.
+Use clear, practical, actionable language. Always emphasise patient safety. When a situation exceeds nursing scope, clearly advise escalating to a physician immediately.
+CRITICAL FORMATTING RULES:
+- Write in plain prose only. No markdown whatsoever.
+- No asterisks (*), no hash symbols (#), no pipe characters (|), no triple dashes (---), no backticks.
+- For numbered steps use: 1. Step  2. Step  or plain dashes: - Item
+- Write as if speaking directly to a nurse colleague.`
+    : `You are GenVeda Care AI, a clinical support assistant for nursing staff.
 Help with: wound assessment, symptom documentation, medication administration protocols, vital sign interpretation, patient monitoring, escalation criteria, and triage decision support.
 Use clear, practical, actionable language. Always emphasise patient safety. When a situation exceeds nursing scope, clearly advise escalating to a physician immediately.
 
@@ -13,18 +30,8 @@ CRITICAL FORMATTING RULES:
 - For numbered steps use: 1. Step  2. Step  or plain dashes: - Item
 - Write as if speaking directly to a nurse colleague.`;
 
-const INIT_MSG = { from: "ai", contextUsed: false, text: "Hello! I'm GenVeda Care AI 💊\n\nI'm here to support your clinical work. I can help with:\n• Wound and skin lesion assessment\n• Symptom documentation for accurate triage\n• Escalation criteria — when to call the doctor\n• Medication dose checks and protocols\n• Patient monitoring guidance\n\nWhat do you need help with?" };
+  const INIT_MSG = { from: "ai", contextUsed: false, text: tx.chatGreeting };
 
-const QUICK = [
-  "How do I assess a suspicious skin lesion?",
-  "Escalation criteria for high-risk dermatology cases",
-  "Wound dressing protocol for open lesions",
-  "How to document ABCDE findings accurately",
-  "Signs that require immediate doctor escalation",
-];
-
-export default function NurseChat() {
-  const navigate = useNavigate();
   const [msgs, setMsgs] = useState([INIT_MSG]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
@@ -34,14 +41,19 @@ export default function NurseChat() {
   const recRef = useRef(null);
 
   useEffect(() => {
+    setMsgs([{ from: "ai", contextUsed: false, text: tr[lang].nurse.chatGreeting }]);
+  }, [lang]);
+
+  useEffect(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SR) {
       const r = new SR();
+      r.lang = tx.voiceLang || "en-US";
       r.onresult = e => { setInput(p => p ? `${p} ${e.results[0][0].transcript}` : e.results[0][0].transcript); setRecording(false); };
       r.onend = () => setRecording(false);
       recRef.current = r;
     }
-  }, []);
+  }, [tx.voiceLang]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, typing]);
 
@@ -117,7 +129,7 @@ export default function NurseChat() {
 
       {msgs.length <= 2 && !typing && (
         <div style={{ display:"flex", flexWrap:"wrap", gap:"8px", padding:"8px 0 4px", flexShrink:0 }}>
-          {QUICK.map(r => <button key={r} onClick={() => send(r)} style={{ background:"var(--card-bg)", border:"1px solid var(--border-color)", borderRadius:"20px", padding:"7px 14px", fontSize:"12px", fontWeight:"600", cursor:"pointer", color:"var(--text-main)", fontFamily:"'Lexend', sans-serif" }}>{r}</button>)}
+          {tx.chatChips.map(r => <button key={r} onClick={() => send(r)} style={{ background:"var(--card-bg)", border:"1px solid var(--border-color)", borderRadius:"20px", padding:"7px 14px", fontSize:"12px", fontWeight:"600", cursor:"pointer", color:"var(--text-main)", fontFamily:"'Lexend', sans-serif" }}>{r}</button>)}
         </div>
       )}
 
@@ -130,7 +142,7 @@ export default function NurseChat() {
             </button>
             <span style={{ fontSize:"9px", color:"#94a3b8", fontStyle:"italic" }}>( optional )</span>
           </div>
-          <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); send(input); } }} placeholder="Ask about wound care, escalation criteria, symptoms..." disabled={typing}
+          <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); send(input); } }} placeholder={tx.chatPlaceholder} disabled={typing}
             style={{ flex:1, padding:"11px 16px", borderRadius:"24px", border:"2px solid var(--border-color)", background:"var(--bg-secondary)", color:"var(--text-main)", fontSize:"14px", outline:"none", fontFamily:"'Lexend', sans-serif" }} />
           <button onClick={() => send(input)} disabled={!input.trim() || typing} style={{ width:"44px", height:"44px", borderRadius:"50%", background:"#004D40", color:"#fff", border:"none", cursor:"pointer", fontSize:"18px", display:"flex", alignItems:"center", justifyContent:"center", opacity:(!input.trim() || typing)?0.5:1 }}>➤</button>
         </div>

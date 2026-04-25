@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { getPatients } from "../../services/api";
+import { useLang } from "../../context/LanguageContext";
+import tr from "../../i18n/translations";
 
 const SYMPTOMS = [
   "Itching", "Burning sensation", "Pain", "Bleeding", "Color change",
@@ -13,6 +15,8 @@ const FAMILY_HISTORY_OPTIONS = [
 
 export default function NurseInput() {
   const navigate = useNavigate();
+  const { lang } = useLang();
+  const tx = tr[lang].patient; // Reuse patient translations for symptoms/duration
   const [patients, setPatients]       = useState([]);
   const [patientId, setPatientId]     = useState(localStorage.getItem("scan_patient") || "");
   const [selected, setSelected]       = useState([]);
@@ -20,7 +24,6 @@ export default function NurseInput() {
   const [familyHistorySelected, setFamilyHistorySelected] = useState([]);
   const [freeText, setFreeText]       = useState("");
   const [isRecording, setIsRecording] = useState(false);
-  const [lang, setLang]               = useState("en-US"); // Default English
   const recognitionRef = useRef(null);
 
   useEffect(() => {
@@ -29,7 +32,7 @@ export default function NurseInput() {
     if (SR) {
       const rec = new SR();
       rec.continuous = true; rec.interimResults = true;
-      rec.lang = lang; // Set based on selection
+      rec.lang = lang === "kn" ? "kn-IN" : "en-US";
       rec.onresult = e => {
         let t = "";
         for (let i = e.resultIndex; i < e.results.length; i++)
@@ -39,7 +42,7 @@ export default function NurseInput() {
       rec.onend = () => setIsRecording(false);
       recognitionRef.current = rec;
     }
-  }, [lang]); // Re-init when language changes
+  }, [lang]);
 
   const toggleSymptom = s => setSelected(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
   const toggleFamilyHistory = f => setFamilyHistorySelected(prev => {
@@ -111,7 +114,7 @@ export default function NurseInput() {
                 selected.includes(s)
                   ? "bg-primary border-primary text-white shadow-md"
                   : "border-surface-variant text-on-surface-variant hover:border-primary hover:text-primary bg-surface-container-low"
-              }`}>{s}</button>
+              }`}>{tx.symptoms[s] || s}</button>
           ))}
         </div>
       </div>
@@ -126,7 +129,7 @@ export default function NurseInput() {
                 duration === d
                   ? "bg-primary border-primary text-white"
                   : "border-surface-variant text-on-surface-variant hover:border-primary hover:text-primary bg-surface-container-low"
-              }`}>{d}</button>
+              }`}>{tx.duration[d] || d}</button>
           ))}
         </div>
       </div>
@@ -141,7 +144,7 @@ export default function NurseInput() {
                 familyHistorySelected.includes(f)
                   ? "bg-primary border-primary text-white shadow-md"
                   : "border-surface-variant text-on-surface-variant hover:border-primary hover:text-primary bg-surface-container-low"
-              }`}>{f}</button>
+              }`}>{tx.familyHistory[f] || f}</button>
           ))}
         </div>
       </div>
@@ -153,8 +156,7 @@ export default function NurseInput() {
             <h3 className="font-headline text-base font-semibold text-on-surface">Additional Notes</h3>
             <span className="text-xs text-on-surface-variant italic font-normal">( optional )</span>
             <div className="flex bg-surface-container-low rounded-lg p-1">
-                <button onClick={() => setLang("en-US")} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${lang === "en-US" ? "bg-primary text-white" : "text-on-surface-variant hover:text-primary"}`}>EN</button>
-                <button onClick={() => setLang("kn-IN")} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${lang === "kn-IN" ? "bg-primary text-white" : "text-on-surface-variant hover:text-primary"}`}>ಕನ್ನಡ</button>
+                <span className="px-3 py-1 text-[10px] font-bold text-primary">{lang === "kn" ? "ಕನ್ನಡ" : "EN"} Voice Active</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
