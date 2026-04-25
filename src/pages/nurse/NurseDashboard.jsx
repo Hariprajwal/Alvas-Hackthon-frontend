@@ -45,7 +45,7 @@ export default function NurseDashboard() {
           </p>
         </div>
         <button
-          onClick={() => navigate("/nurse/scan")}
+          onClick={() => navigate("/nurse/input")}
           className="bg-white text-[#004D40] font-bold px-8 py-4 rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgba(255,255,255,0.3)] hover:-translate-y-1 transition-all flex items-center gap-2 shrink-0 text-lg relative z-10"
         >
           <span className="material-symbols-outlined" style={{ fontVariationSettings:"'FILL' 1" }}>biotech</span>

@@ -12,8 +12,7 @@ const NAV_ITEMS = {
   ],
   nurse: [
     { to: "/nurse/dashboard", icon: "dashboard",   label: "Dashboard" },
-    { to: "/nurse/scan",      icon: "biotech",      label: "New Scan" },
-    { to: "/nurse/input",     icon: "assignment",   label: "Symptoms" },
+    { to: "/nurse/input",     icon: "biotech",      label: "New Scan" },
     { to: "/nurse/result",    icon: "analytics",    label: "Result" },
     { to: "/nurse/submit",    icon: "send",         label: "Submit Case" },
     { to: "/nurse/patients",  icon: "group",        label: "Patients" },
