@@ -65,6 +65,9 @@ export const createScan = (formData) =>
   API.post("scans/", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
+export const escalateScan = (scanId, data) => API.post(`scans/${scanId}/escalate/`, data);
+export const reviewScan = (scanId, data) => API.post(`scans/${scanId}/review/`, data);
+export const getPrescriptions = (params) => API.get("prescriptions/", { params });
 
 // ── Report helpers (nurse) ──
 export const getReports = (params) => API.get("reports/", { params });
@@ -79,5 +82,9 @@ export const triagePatient = (patientId, data) => API.patch(`patients/${patientI
 // ── Appointment helpers ──
 export const getAppointments = () => API.get("appointments/");
 export const createAppointment = (data) => API.post("appointments/", data);
+
+// ── RAG Chat helper ──
+export const sendChatMessage = (message, history = []) =>
+  API.post("chat/", { message, history });
 
 export default API;

@@ -79,11 +79,15 @@ export default function NursePatients() {
       fetchData();
     } catch (err) {
       const errData = err.response?.data;
-      if (typeof errData === "object") {
-        const messages = Object.entries(errData)
-          .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(", ") : msgs}`)
-          .join(" | ");
-        setError(messages);
+      if (errData && typeof errData === "object") {
+        if (errData.detail) {
+          setError(errData.detail);
+        } else {
+          const messages = Object.entries(errData)
+            .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(", ") : msgs}`)
+            .join(" | ");
+          setError(messages || JSON.stringify(errData));
+        }
       } else {
         setError("Failed to add patient.");
       }

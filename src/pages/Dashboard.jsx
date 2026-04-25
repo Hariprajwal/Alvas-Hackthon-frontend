@@ -8,12 +8,13 @@ export default function Dashboard() {
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const userName = localStorage.getItem("user_name") || "Doctor";
+  const rawName = localStorage.getItem("user_name") || "Doctor";
+  const userName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
 
   useEffect(() => {
     Promise.all([getPatients(), getScans()])
       .then(([pRes, sRes]) => { setPatients(pRes.data); setScans(sRes.data); })
-      .catch(() => setError("Failed to load dashboard data."))
+      .catch((err) => console.error(err))
       .finally(() => setLoading(false));
   }, []);
 
@@ -21,6 +22,8 @@ export default function Dashboard() {
   const totalScans = scans.length;
   const highRisk = scans.filter(s => s.risk_category === "HIGH" || (s.risk_score != null && s.risk_score >= 67)).length;
   const autoResolved = scans.filter(s => s.risk_category === "LOW" || (s.risk_score != null && s.risk_score < 44)).length;
+  const escalatedScans = scans.filter(s => s.is_escalated);
+  const referredPatients = patients.filter(p => escalatedScans.some(s => s.patient === p.id));
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen">
@@ -32,8 +35,7 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="pt-24 px-6 md:px-12 pb-12 max-w-7xl mx-auto w-full flex-grow flex flex-col gap-8 fade-in">
-      {error && <div className="bg-error-container text-on-error-container p-4 rounded-2xl font-body text-base">{error}</div>}
+    <div className="pt-8 px-6 md:px-12 pb-12 max-w-7xl mx-auto w-full flex-grow flex-col gap-8 fade-in">
 
       {/* Hero */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 bg-surface-container-low p-8 rounded-[2rem]">
@@ -77,6 +79,63 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* Referred Patients (Escalated) */}
+      {referredPatients.length > 0 && (
+        <div className="bg-error-container/10 border-2 border-error/50 rounded-[2rem] p-6 md:p-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-headline text-xl font-bold text-error flex items-center gap-2">
+              <span className="material-symbols-outlined" style={{ fontVariationSettings:"'FILL' 1" }}>emergency</span>
+              Referred Patients (Escalated)
+            </h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left font-body text-base">
+              <thead>
+                <tr className="text-on-surface-variant text-sm border-b border-surface-variant">
+                  <th className="pb-4 font-semibold">Patient</th>
+                  <th className="pb-4 font-semibold">Age</th>
+                  <th className="pb-4 font-semibold">Status</th>
+                  <th className="pb-4 font-semibold text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {referredPatients.map(p => {
+                  const patScans = escalatedScans.filter(s => s.patient === p.id);
+                  const latestScan = patScans[patScans.length - 1];
+                  return (
+                    <tr key={p.id} className="border-b border-surface-container-high hover:bg-surface-container-low transition-colors group">
+                      <td className="py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-full bg-error/10 flex items-center justify-center font-headline font-bold text-error text-sm">
+                            {p.name.substring(0,2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-on-surface">{p.name}</p>
+                            <p className="text-xs text-on-surface-variant">ID #{p.id}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 text-on-surface-variant">{p.age}</td>
+                      <td className="py-4">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-error text-white">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white inline-block"></span>Escalated by Health Worker
+                        </span>
+                        {latestScan?.notes && <p className="text-xs text-on-surface-variant mt-1 max-w-xs truncate">{latestScan.notes}</p>}
+                      </td>
+                      <td className="py-4 text-right">
+                        <Link to={`/patients/${p.id}/history`} className="inline-flex items-center gap-1 bg-error text-white px-4 py-2 rounded-full transition-colors text-sm font-semibold hover:opacity-90">
+                          Review Case <span className="material-symbols-outlined text-sm">chevron_right</span>
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Patient Table */}
       <div className="bg-surface-container-lowest rounded-[2rem] p-6 md:p-8">

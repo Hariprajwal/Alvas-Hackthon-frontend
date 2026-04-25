@@ -5,9 +5,9 @@ import { createScan, getPatients } from "../../services/api";
 export default function NurseScan() {
   const navigate = useNavigate();
   const [image, setImage] = useState(null);
-  const [patientId, setPatientId] = useState("");
+  const [patientId, setPatientId] = useState(localStorage.getItem("scan_patient") || "");
   const [patients, setPatients] = useState([]);
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(localStorage.getItem("scan_notes") || "");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -88,14 +88,7 @@ export default function NurseScan() {
 
       console.log("[Camera] Detected cameras:", cams.map((c) => `${c.label} [${c.deviceId.slice(0, 8)}]`));
 
-      if (mode === "system") {
-        const sysCam = cams.find((c) => !isLikelyDermoscope(c.label)) || cams[0];
-        if (!sysCam) { setError("No system camera found."); return; }
-        console.log("[Camera] System camera:", sysCam.label);
-        setSelectedDeviceId(sysCam.deviceId);
-        startCamera(sysCam.deviceId);
-
-      } else if (mode === "dermoscope") {
+      if (mode === "dermoscope") {
         const dermCam = cams.find((c) => isLikelyDermoscope(c.label));
 
         if (dermCam) {
@@ -166,8 +159,16 @@ export default function NurseScan() {
       formData.append("image", image);
       formData.append("patient", patientId);
       if (notes) formData.append("notes", notes);
-      await createScan(formData);
-      navigate("/nurse/triage");
+      
+      const rawSymptoms = localStorage.getItem("scan_symptoms_raw");
+      const rawFamilyHistory = localStorage.getItem("scan_family_history_raw");
+      
+      if (rawSymptoms) formData.append("symptoms", rawSymptoms);
+      if (rawFamilyHistory) formData.append("family_history", rawFamilyHistory);
+      
+      const res = await createScan(formData);
+      localStorage.setItem("lastResult", JSON.stringify(res.data));
+      navigate("/nurse/result");
     } catch (err) {
       setError("Upload failed. Please try again.");
     } finally {
@@ -195,39 +196,18 @@ export default function NurseScan() {
               <h3 style={s.cardTitle}>📷 Select Image Source</h3>
               <p style={s.cameraSubtitle}>Choose a camera or upload from your device</p>
               <div style={s.cameraSourceGrid}>
-                <button style={s.cameraSourceBtn} onClick={() => handleCameraSelect("system")}>
-                  <span style={s.cameraSourceIcon}>💻</span>
-                  <span style={s.cameraSourceLabel}>System Camera</span>
-                  <span style={s.cameraSourceHint}>Built-in webcam</span>
-                </button>
+                <label style={{ ...s.cameraSourceBtn, position: "relative" }}>
+                  <span style={s.cameraSourceIcon}>📁</span>
+                  <span style={s.cameraSourceLabel}>Upload File</span>
+                  <span style={s.cameraSourceHint}>From your device</span>
+                  <input type="file" accept="image/*" onChange={handleImageChange} style={{ opacity: 0, position: "absolute", inset: 0, cursor: "pointer" }} />
+                </label>
                 <button style={s.cameraSourceBtn} onClick={() => handleCameraSelect("dermoscope")}>
                   <span style={s.cameraSourceIcon}>🔬</span>
                   <span style={s.cameraSourceLabel}>Dermoscope</span>
                   <span style={s.cameraSourceHint}>USB dermatoscope</span>
                 </button>
               </div>
-              {availableCameras.length > 0 && (
-                <div style={s.devicePickerRow}>
-                  <label style={s.devicePickerLabel}>Manual device select:</label>
-                  <select
-                    style={s.devicePickerSelect}
-                    value={selectedDeviceId}
-                    onChange={(e) => handleDeviceChange(e.target.value)}
-                  >
-                    <option value="">-- Select device --</option>
-                    {availableCameras.map((cam, i) => {
-                      const isUsb = DERM_KEYWORDS.some((kw) => (cam.label || "").toLowerCase().includes(kw));
-                      const tag = isUsb ? "🔬 USB" : "💻 Built-in";
-                      const label = cam.label || `Camera ${i + 1}`;
-                      return (
-                        <option key={cam.deviceId} value={cam.deviceId}>
-                          {tag} — {label}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-              )}
             </div>
           )}
 
@@ -279,13 +259,10 @@ export default function NurseScan() {
           <div style={s.card}>
             <h3 style={s.cardTitle}>Patient Details</h3>
             <div style={s.inputGroup}>
-              <label style={s.label}>Select Patient</label>
-              <select style={s.input} value={patientId} onChange={(e) => setPatientId(e.target.value)}>
-                <option value="">-- Choose a patient --</option>
-                {patients.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} (Age: {p.age})</option>
-                ))}
-              </select>
+              <label style={s.label}>Selected Patient</label>
+              <div style={{ ...s.input, backgroundColor: "var(--bg-secondary)", opacity: 0.8, cursor: "not-allowed" }}>
+                {patients.find(p => p.id == patientId)?.name || "Patient ID: " + patientId}
+              </div>
             </div>
           </div>
 

@@ -32,7 +32,7 @@ const MONITORING = {
 };
 
 // ── SVG Risk Gauge ──────────────────────────────────────────────────────────
-function RiskGauge({ score }) {
+function RiskGauge({ score, isAnomaly }) {
   const r = 70;
   const cx = 90, cy = 90;
   const toRad = (deg) => (deg * Math.PI) / 180;
@@ -44,36 +44,47 @@ function RiskGauge({ score }) {
     return `M ${x1} ${y1} A ${r} ${r} 0 0 0 ${x2} ${y2}`;
   };
 
-  const needleAngle = 180 - (score / 100) * 180;
+  // When anomaly: needle points straight up (90°), greyed out
+  const displayScore = isAnomaly ? 50 : score;
+  const needleAngle = 180 - (displayScore / 100) * 180;
   const needleRad = toRad(needleAngle);
   const nx = cx + 58 * Math.cos(needleRad), ny = cy - 58 * Math.sin(needleRad);
 
   const riskColor = score >= 67 ? "#EF5350" : score >= 44 ? "#FFA726" : "#66BB6A";
-  const riskLabel = score >= 67 ? "HIGH RISK" : score >= 44 ? "MEDIUM RISK" : "LOW RISK";
+  const needleColor = isAnomaly ? "#94a3b8" : "var(--text-main)";
+  const riskLabel = isAnomaly ? "UNABLE TO ASSESS" : (score >= 67 ? "HIGH RISK" : score >= 44 ? "MEDIUM RISK" : "LOW RISK");
+  const labelColor = isAnomaly ? "#94a3b8" : riskColor;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
       <svg width="180" height="110" viewBox="0 0 180 110">
         {/* Track */}
         <path d={arcPath(180, 0)} fill="none" stroke="var(--border-color)" strokeWidth="16" />
-        {/* LOW zone */}
-        <path d={arcPath(180, 120)} fill="none" stroke="#66BB6A" strokeWidth="16" strokeLinecap="butt" />
-        {/* MEDIUM zone */}
-        <path d={arcPath(120, 60)} fill="none" stroke="#FFA726" strokeWidth="16" strokeLinecap="butt" />
-        {/* HIGH zone */}
-        <path d={arcPath(60, 0)} fill="none" stroke="#EF5350" strokeWidth="16" strokeLinecap="butt" />
+        {/* Colour zones — greyed when anomaly */}
+        <path d={arcPath(180, 120)} fill="none" stroke={isAnomaly ? "#e2e8f0" : "#66BB6A"} strokeWidth="16" strokeLinecap="butt" />
+        <path d={arcPath(120, 60)}  fill="none" stroke={isAnomaly ? "#e2e8f0" : "#FFA726"} strokeWidth="16" strokeLinecap="butt" />
+        <path d={arcPath(60, 0)}    fill="none" stroke={isAnomaly ? "#e2e8f0" : "#EF5350"} strokeWidth="16" strokeLinecap="butt" />
         {/* Needle */}
-        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="var(--text-main)" strokeWidth="2.5" strokeLinecap="round" />
-        <circle cx={cx} cy={cy} r="5" fill="var(--text-main)" />
-        {/* Score text */}
-        <text x={cx} y={cy + 22} textAnchor="middle" fontSize="20" fontWeight="700" fill={riskColor}>{score.toFixed(0)}</text>
-        <text x={cx} y={cy + 35} textAnchor="middle" fontSize="7" fill="var(--text-muted)">/ 100</text>
+        <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={needleColor} strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r="5" fill={needleColor} />
+        {/* Score label */}
+        {isAnomaly ? (
+          <>
+            <text x={cx} y={cy + 20} textAnchor="middle" fontSize="12" fontWeight="700" fill="#94a3b8">N / A</text>
+            <text x={cx} y={cy + 33} textAnchor="middle" fontSize="7" fill="#94a3b8">Non-skin image</text>
+          </>
+        ) : (
+          <>
+            <text x={cx} y={cy + 22} textAnchor="middle" fontSize="18" fontWeight="700" fill={riskColor}>{score.toFixed(0)}</text>
+            <text x={cx} y={cy + 35} textAnchor="middle" fontSize="7" fill="var(--text-muted)">/ 100</text>
+          </>
+        )}
         {/* Zone labels */}
-        <text x="22" y="85" fontSize="7" fontWeight="700" fill="#66BB6A">LOW</text>
-        <text x="75" y="22" fontSize="7" fontWeight="700" fill="#FFA726">MED</text>
-        <text x="145" y="85" fontSize="7" fontWeight="700" fill="#EF5350">HIGH</text>
+        <text x="22" y="85" fontSize="7" fontWeight="700" fill={isAnomaly ? "#cbd5e1" : "#66BB6A"}>LOW</text>
+        <text x="75" y="22" fontSize="7" fontWeight="700" fill={isAnomaly ? "#cbd5e1" : "#FFA726"}>MED</text>
+        <text x="145" y="85" fontSize="7" fontWeight="700" fill={isAnomaly ? "#cbd5e1" : "#EF5350"}>HIGH</text>
       </svg>
-      <span style={{ fontSize: "13px", fontWeight: "700", color: riskColor, letterSpacing: "0.5px" }}>{riskLabel}</span>
+      <span style={{ fontSize: "13px", fontWeight: "700", color: labelColor, letterSpacing: "0.5px" }}>{riskLabel}</span>
     </div>
   );
 }
@@ -135,8 +146,15 @@ export default function Insights() {
 
   // Extract rich data from lastResult
   // all_probs is stored as percentages (0-100) e.g. {nv: 72.4, mel: 5.1, ...}
-  const riskScore = lastResult?.risk_score ?? 0;
+  const riskScore    = lastResult?.risk_score    ?? 0;
   const riskCategory = lastResult?.risk_category ?? "LOW";
+  const predDisease  = lastResult?.predicted_disease ?? "";
+
+  // Detect non-skin / unrelated images — these get low scores but are meaningless
+  const isAnomaly = [
+    "not skin", "anomaly", "unrelated", "no lesion", "calculating",
+  ].some(kw => predDisease.toLowerCase().includes(kw));
+
   const allProbs = lastResult?.all_probs ?? {};
   // predClass = class with highest probability
   const predClass = Object.keys(allProbs).length > 0
@@ -144,7 +162,7 @@ export default function Insights() {
     : "nv";
   const abcdeFlags = ABCDE_DATA[predClass] ?? {};
   const monitoring = MONITORING[riskCategory] ?? MONITORING.LOW;
-  const riskColor = { HIGH: "#EF5350", MEDIUM: "#FFA726", LOW: "#66BB6A" }[riskCategory];
+  const riskColor  = { HIGH: "#EF5350", MEDIUM: "#FFA726", LOW: "#66BB6A" }[riskCategory];
 
   return (
     <div style={s.container}>
@@ -154,7 +172,11 @@ export default function Insights() {
           <h1 style={s.title}>Diagnostic Insights</h1>
         </div>
         <div style={s.actions}>
-          <button style={s.btnOutline}>Refer Patient</button>
+          {riskCategory === "HIGH" ? (
+             <button style={{ ...s.btnOutline, color: "#EF5350", borderColor: "#EF5350", background: "rgba(239, 83, 80, 0.1)" }}>⚠ Auto-Referred to Doctor</button>
+          ) : (
+             <button style={s.btnOutline}>Refer Patient</button>
+          )}
           <button style={s.btnPrimary}>Save Results</button>
         </div>
       </header>
@@ -239,7 +261,7 @@ export default function Insights() {
           <div style={s.card}>
             <h3 style={s.cardTitleCenter}>RISK SCORE GAUGE</h3>
             <div style={{ display: "flex", justifyContent: "center", marginBottom: "16px" }}>
-              <RiskGauge score={Math.min(100, Math.max(0, riskScore > 0 ? riskScore : avgConfidence))} />
+              <RiskGauge score={Math.min(100, Math.max(0, riskScore > 0 ? riskScore : avgConfidence))} isAnomaly={isAnomaly} />
             </div>
             <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
               {["LOW", "MEDIUM", "HIGH"].map((cat) => {
@@ -253,7 +275,11 @@ export default function Insights() {
               })}
             </div>
             <p style={s.scoreDesc}>
-              {riskScore > 0 ? `Weighted risk score from AI analysis. Category: ${riskCategory}.` : "Overall average AI confidence across all scans."}
+              {isAnomaly
+                ? "⚠ Image does not appear to be a skin lesion. Please upload a clear dermoscopy image."
+                : riskScore > 0
+                  ? `Weighted risk score from AI analysis. Category: ${riskCategory}.`
+                  : "Overall average AI confidence across all scans."}
             </p>
           </div>
 
@@ -273,8 +299,12 @@ export default function Insights() {
                         fontSize: "12px", fontWeight: "700", color: "#fff",
                       }}>{letter}</div>
                       <span style={{ fontSize: "13px", flex: 1, color: "var(--text-main)" }}>{desc}</span>
-                      <span style={{ fontSize: "12px", fontWeight: "700", color: present ? "#EF5350" : "#66BB6A" }}>
-                        {present ? "YES ✗" : "NO ✓"}
+                      <span style={{
+                        fontSize: "11px", fontWeight: "700", padding: "3px 10px", borderRadius: "20px",
+                        background: present ? "#fee2e2" : "#f0fdf4",
+                        color: present ? "#dc2626" : "#16a34a",
+                      }}>
+                        {present ? "Present" : "Not Present"}
                       </span>
                     </div>
                   );
@@ -354,7 +384,7 @@ export default function Insights() {
 }
 
 const s = {
-  container: { paddingTop: "20px" },
+  container: { paddingTop: "40px" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "32px" },
   breadcrumb: { fontSize: "12px", fontWeight: "600", color: "var(--text-muted)", letterSpacing: "1px", marginBottom: "8px" },
   title: { fontSize: "28px", fontWeight: "700", color: "var(--text-main)", letterSpacing: "-0.5px" },

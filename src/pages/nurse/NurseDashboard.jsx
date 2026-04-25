@@ -7,7 +7,8 @@ export default function NurseDashboard() {
   const [patients, setPatients] = useState([]);
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(true);
-  const userName = localStorage.getItem("user_name") || "Nurse";
+  const rawName = localStorage.getItem("user_name") || "Nurse";
+  const userName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
 
   useEffect(() => {
     Promise.all([getPatients(), getScans()])
@@ -27,21 +28,25 @@ export default function NurseDashboard() {
   );
 
   return (
-    <div className="pt-24 px-6 md:px-10 pb-12 max-w-6xl mx-auto w-full flex flex-col gap-8 fade-in">
+    <div className="pt-8 px-6 md:px-10 pb-12 max-w-6xl mx-auto w-full flex flex-col gap-8 fade-in">
       {/* Hero */}
-      <div className="bg-surface-container-low p-7 rounded-[2rem] flex flex-col md:flex-row md:items-end justify-between gap-5">
-        <div>
-          <p className="text-on-surface-variant text-sm tracking-widest uppercase mb-1">Health Worker Portal</p>
-          <h2 className="font-headline text-3xl font-bold text-on-surface mb-2">Welcome, Nurse {userName.split(' ')[0]}</h2>
-          <p className="text-on-surface-variant text-base">
+      <div className="bg-gradient-to-br from-[#004D40] to-[#00796B] p-8 md:p-10 rounded-[2.5rem] flex flex-col md:flex-row md:items-end justify-between gap-6 shadow-2xl relative overflow-hidden text-white">
+        {/* Decorative elements */}
+        <div className="absolute top-[-50px] left-[-50px] w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute bottom-[-50px] right-[-50px] w-80 h-80 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
+        
+        <div className="relative z-10">
+          <p className="text-white/70 text-sm tracking-[0.2em] font-semibold uppercase mb-2">Health Worker Portal</p>
+          <h2 className="font-headline text-white text-4xl font-extrabold mb-3">Welcome, Nurse {userName.split(' ')[0]}</h2>
+          <p className="text-white/80 text-lg max-w-xl">
             {highRisk > 0
-              ? <span><strong className="text-error">{highRisk} high-risk patient(s)</strong> need escalation to doctor.</span>
+              ? <span><strong className="text-[#FFCDD2] bg-error/20 px-2 py-0.5 rounded-md">{highRisk} high-risk patient(s)</strong> need escalation to doctor.</span>
               : "Shift overview looks good. Start a new scan below."}
           </p>
         </div>
         <button
           onClick={() => navigate("/nurse/scan")}
-          className="bg-primary text-white font-semibold px-7 py-3.5 rounded-full shadow-lg hover:opacity-90 transition-all flex items-center gap-2 shrink-0 text-base"
+          className="bg-white text-[#004D40] font-bold px-8 py-4 rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgba(255,255,255,0.3)] hover:-translate-y-1 transition-all flex items-center gap-2 shrink-0 text-lg relative z-10"
         >
           <span className="material-symbols-outlined" style={{ fontVariationSettings:"'FILL' 1" }}>biotech</span>
           New Scan
@@ -49,18 +54,18 @@ export default function NurseDashboard() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
-          { icon: "group",   label: "Patients Registered", value: patients.length, color: "text-primary",   bg: "bg-primary-container/20" },
-          { icon: "warning", label: "High Risk — Escalate", value: highRisk,        color: "text-error",     bg: "bg-error-container/30" },
-          { icon: "biotech", label: "Scans Done Today",    value: scans.length,    color: "text-secondary", bg: "bg-secondary-container/30" },
+          { icon: "group",   label: "Patients Registered", value: patients.length, color: "text-[#00796B]", bg: "bg-[#E0F2F1]", border: "border-[#B2DFDB]" },
+          { icon: "warning", label: "High Risk — Escalate", value: highRisk,        color: "text-[#D32F2F]", bg: "bg-[#FFEBEE]", border: "border-[#FFCDD2]" },
+          { icon: "biotech", label: "Scans Done Today",    value: scans.length,    color: "text-[#1976D2]", bg: "bg-[#E3F2FD]", border: "border-[#BBDEFB]" },
         ].map(c => (
-          <div key={c.label} className="bg-surface-container-lowest p-6 rounded-[1.75rem] hover:shadow-lg transition-shadow">
-            <div className={`${c.bg} p-2.5 rounded-2xl w-fit mb-4`}>
-              <span className={`material-symbols-outlined ${c.color} text-2xl`} style={{ fontVariationSettings:"'FILL' 1" }}>{c.icon}</span>
+          <div key={c.label} className={`bg-white p-7 rounded-[2rem] shadow-[0_4px_20px_rgba(0,0,0,0.04)] border border-surface-variant/50 hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-all flex flex-col`}>
+            <div className={`${c.bg} ${c.border} border p-3.5 rounded-2xl w-fit mb-5 shadow-sm`}>
+              <span className={`material-symbols-outlined ${c.color} text-3xl`} style={{ fontVariationSettings:"'FILL' 1" }}>{c.icon}</span>
             </div>
-            <p className="text-on-surface-variant text-sm font-medium mb-1">{c.label}</p>
-            <p className="font-headline text-4xl font-extrabold text-on-surface tracking-tighter">{c.value}</p>
+            <p className="text-on-surface-variant text-sm font-semibold tracking-wide uppercase mb-1">{c.label}</p>
+            <p className="font-headline text-5xl font-extrabold text-on-surface tracking-tighter">{c.value}</p>
           </div>
         ))}
       </div>
@@ -123,20 +128,21 @@ export default function NurseDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
         {[
-          { icon: "biotech",          label: "New Scan",       to: "/nurse/scan" },
-          { icon: "person_add",       label: "Add Patient",    to: "/nurse/patients" },
-          { icon: "assignment",       label: "Triage Queue",   to: "/nurse/triage" },
-          { icon: "send",             label: "Submit Case",    to: "/nurse/submit" },
+          { icon: "biotech",          label: "New Scan",       to: "/nurse/scan",    gradient: "from-teal-500 to-emerald-500" },
+          { icon: "person_add",       label: "Add Patient",    to: "/nurse/patients",gradient: "from-blue-500 to-cyan-500" },
+          { icon: "assignment",       label: "Triage Queue",   to: "/nurse/triage",  gradient: "from-indigo-500 to-purple-500" },
+          { icon: "send",             label: "Submit Case",    to: "/nurse/submit",  gradient: "from-rose-500 to-pink-500" },
         ].map(a => (
           <Link key={a.label} to={a.to}
-            className="bg-surface-container-lowest p-5 rounded-[1.5rem] flex flex-col items-center gap-3 hover:bg-primary-container/10 hover:shadow-md transition-all text-center group"
+            className="relative bg-white p-6 rounded-[2rem] flex flex-col items-center justify-center gap-4 shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)] hover:-translate-y-1 transition-all text-center group border border-surface-variant/50 overflow-hidden"
           >
-            <div className="bg-primary-container/20 p-3 rounded-2xl group-hover:bg-primary group-hover:text-white transition-all">
-              <span className="material-symbols-outlined text-primary group-hover:text-white text-2xl" style={{ fontVariationSettings:"'FILL' 1" }}>{a.icon}</span>
+            <div className={`absolute inset-0 bg-gradient-to-br ${a.gradient} opacity-0 group-hover:opacity-5 transition-opacity`}></div>
+            <div className={`bg-gradient-to-br ${a.gradient} p-4 rounded-[1.25rem] shadow-md group-hover:scale-110 transition-transform duration-300`}>
+              <span className="material-symbols-outlined text-white text-3xl" style={{ fontVariationSettings:"'FILL' 1" }}>{a.icon}</span>
             </div>
-            <p className="font-semibold text-on-surface text-sm">{a.label}</p>
+            <p className="font-bold text-on-surface text-base group-hover:text-primary transition-colors z-10">{a.label}</p>
           </Link>
         ))}
       </div>
