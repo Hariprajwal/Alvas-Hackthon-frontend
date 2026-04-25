@@ -7,16 +7,15 @@ export default function NewScan() {
   const [image, setImage] = useState(null);
   const [patientId, setPatientId] = useState("");
   const [patients, setPatients] = useState([]);
-  const [notes, setNotes] = useState("");
+  const [symptoms, setSymptoms] = useState([]);
+  const [familyHistory, setFamilyHistory] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState(null);
 
   // Camera state
-  const [cameraMode, setCameraMode] = useState(null);      // null | "system" | "dermoscope"
+  const [cameraMode, setCameraMode] = useState(null);      // null | "dermoscope"
   const [cameraActive, setCameraActive] = useState(false);
-  const [availableCameras, setAvailableCameras] = useState([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState("");
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const canvasRef = useRef(null);
@@ -49,12 +48,7 @@ export default function NewScan() {
     }
     
     getPatients().then((res) => setPatients(res.data)).catch(() => {});
-    // Enumerate camera devices
-    navigator.mediaDevices?.enumerateDevices().then((devices) => {
-      const cams = devices.filter((d) => d.kind === "videoinput");
-      setAvailableCameras(cams);
-    }).catch(() => {});
-
+    
     return () => stopCamera();
   }, []);
 
@@ -87,15 +81,12 @@ export default function NewScan() {
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
-      // Don't touch videoRef here — the video element may not exist yet.
-      // The useEffect above will attach the stream after cameraActive=true renders the video.
       setCameraActive(true);
     } catch (err) {
       setError("Camera access denied or device not found. Check browser permissions.");
     }
   };
 
-  // Keywords that typically appear in USB/dermoscope camera labels
   const DERM_KEYWORDS = ["usb", "external", "capture", "derm", "horus", "derml", "video device", "hdmi", "obs", "cam link"];
 
   const isLikelyDermoscope = (label = "") =>
@@ -108,42 +99,21 @@ export default function NewScan() {
     setError("");
 
     try {
-      // Step 1: Request ANY camera permission so browser unlocks real device labels
       const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
-      tempStream.getTracks().forEach((t) => t.stop()); // release immediately
+      tempStream.getTracks().forEach((t) => t.stop());
 
-      // Step 2: Re-enumerate NOW — labels will be populated after permission grant
       const devices = await navigator.mediaDevices.enumerateDevices();
       const cams = devices.filter((d) => d.kind === "videoinput");
-      setAvailableCameras(cams);
 
-      console.log("[Camera] Detected cameras:", cams.map((c) => `${c.label} [${c.deviceId.slice(0, 8)}]`));
-
-      if (mode === "system") {
-        // System camera: prefer built-in (not USB/external)
-        const sysCam = cams.find((c) => !isLikelyDermoscope(c.label)) || cams[0];
-        if (!sysCam) { setError("No system camera found."); return; }
-        console.log("[Camera] System camera:", sysCam.label);
-        setSelectedDeviceId(sysCam.deviceId);
-        startCamera(sysCam.deviceId);
-
-      } else if (mode === "dermoscope") {
-        // Dermoscope: prefer USB/external camera by label keywords
+      if (mode === "dermoscope") {
         const dermCam = cams.find((c) => isLikelyDermoscope(c.label));
 
         if (dermCam) {
-          // Found a clear USB/dermoscope device
-          console.log("[Camera] Dermoscope found by label:", dermCam.label);
-          setSelectedDeviceId(dermCam.deviceId);
           startCamera(dermCam.deviceId);
         } else if (cams.length > 1) {
-          // Multiple cameras but no label match — take the LAST one (USB typically appears after built-in)
           const lastCam = cams[cams.length - 1];
-          console.log("[Camera] No label match — using last camera:", lastCam.label);
-          setSelectedDeviceId(lastCam.deviceId);
           startCamera(lastCam.deviceId);
         } else {
-          // Only one camera detected — inform user
           setError("Only one camera detected. Please connect your USB dermoscope and try again.");
           setCameraMode(null);
         }
@@ -152,11 +122,6 @@ export default function NewScan() {
       setError("Camera permission denied. Please allow camera access in your browser settings.");
       setCameraMode(null);
     }
-  };
-
-  const handleDeviceChange = (deviceId) => {
-    setSelectedDeviceId(deviceId);
-    startCamera(deviceId);
   };
 
   const captureFrame = () => {
@@ -219,7 +184,8 @@ export default function NewScan() {
       const formData = new FormData();
       formData.append("image", image);
       formData.append("patient", patientId);
-      if (notes) formData.append("notes", notes);
+      if (symptoms.length > 0) formData.append("symptoms", JSON.stringify(symptoms));
+      if (familyHistory) formData.append("family_history", familyHistory);
       const res = await createScan(formData);
       localStorage.setItem("lastResult", JSON.stringify(res.data));
       navigate("/insights");
@@ -250,13 +216,103 @@ export default function NewScan() {
       {error && <div style={styles.error}>{error}</div>}
 
       <div style={styles.grid}>
+        
+        {/* Right: Form (Patient & Clinical Data) */}
+        <div style={styles.rightColumn}>
+          <div style={styles.card}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", borderBottom: "1px solid var(--c-outline-variant)", paddingBottom: "12px" }}>
+              <h3 style={{ ...styles.cardTitle, borderBottom: "none", paddingBottom: 0, margin: 0 }}>Step 1: Patient Selection</h3>
+              <button onClick={() => navigate("/ehr-setup")} style={{ background: "var(--c-primary)", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}>+ New Profile</button>
+            </div>
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Select Patient</label>
+              <select
+                style={styles.input}
+                value={patientId}
+                onChange={(e) => setPatientId(e.target.value)}
+              >
+                <option value="">-- Choose a patient --</option>
+                {patients.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} (Age: {p.age})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div style={{ ...styles.card, opacity: patientId ? 1 : 0.5, pointerEvents: patientId ? 'auto' : 'none' }}>
+            <h3 style={styles.cardTitle}>Step 2: Clinical Observations</h3>
+
+            <div style={styles.inputGroup}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+                <label style={styles.label}>Clinical Symptom Checklist</label>
+                <span style={styles.optionalInline}>— check all that apply</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {[
+                  { id: "Itching",       label: "Pruritus (Itching)",        desc: "Patient reports itching at or around the lesion" },
+                  { id: "Bleeding",      label: "Haemorrhage (Bleeding)",     desc: "Active or recent bleeding from the lesion site" },
+                  { id: "Pain",          label: "Pain / Tenderness",          desc: "Localised pain or tenderness on palpation" },
+                  { id: "Rapid growth",  label: "Rapid Lesion Growth",        desc: "Noticeable increase in size over days or weeks" },
+                  { id: "Change in color",label:"Dyschromia (Colour Change)", desc: "Irregular or changing pigmentation of the lesion" },
+                  { id: "Others",        label: "Others / Not Listed",        desc: "Any other symptom not listed above" },
+                ].map(sym => (
+                  <div key={sym.id} onClick={() => setSymptoms(prev => prev.includes(sym.id) ? prev.filter(s => s !== sym.id) : [...prev, sym.id])}
+                    style={{
+                      display: "flex", alignItems: "center", gap: "12px", padding: "12px 14px",
+                      borderRadius: "10px", border: `2px solid ${symptoms.includes(sym.id) ? "var(--primary)" : "var(--border-color)"}`,
+                      background: symptoms.includes(sym.id) ? "rgba(0,121,107,0.08)" : "var(--bg-secondary)",
+                      cursor: "pointer", transition: "all 0.15s",
+                    }}>
+                    <div style={{
+                      width: "20px", height: "20px", borderRadius: "6px", flexShrink: 0,
+                      background: symptoms.includes(sym.id) ? "var(--primary)" : "transparent",
+                      border: `2px solid ${symptoms.includes(sym.id) ? "var(--primary)" : "var(--border-color)"}`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      {symptoms.includes(sym.id) && <span style={{ color: "#fff", fontSize: "12px", fontWeight: "800", lineHeight: 1 }}>✓</span>}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: "13px", fontWeight: "700", color: "var(--text-main)", margin: 0 }}>{sym.label}</p>
+                      <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: "2px 0 0 0" }}>{sym.desc}</p>
+                    </div>
+                    <span style={{
+                      fontSize: "11px", fontWeight: "700", padding: "3px 10px", borderRadius: "20px", flexShrink: 0,
+                      background: symptoms.includes(sym.id) ? "#dcfce7" : "#f1f5f9",
+                      color: symptoms.includes(sym.id) ? "#15803d" : "#64748b",
+                    }}>
+                      {symptoms.includes(sym.id) ? "✓ Observed" : "Not Observed"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ ...styles.inputGroup, marginTop: "16px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                <label style={styles.label}>Family History — Dermatological</label>
+                <span style={styles.optionalInline}>( optional )</span>
+              </div>
+              <textarea
+                style={styles.textarea}
+                placeholder="e.g. Melanoma in first-degree relatives, squamous cell carcinoma..."
+                value={familyHistory}
+                onChange={(e) => setFamilyHistory(e.target.value)}
+              />
+            </div>
+          </div>
+
+        </div>
+
         {/* Left: Preview + Camera */}
-        <div style={styles.leftColumn}>
+        <div style={{ ...styles.leftColumn, opacity: patientId ? 1 : 0.4, pointerEvents: patientId ? 'auto' : 'none' }}>
+          
           {/* Camera Source Selector */}
           {!cameraActive && !preview && (
             <div style={styles.cameraSourceCard}>
-              <h3 style={styles.cardTitle}>📷 Select Image Source</h3>
-              <p style={styles.cameraSubtitle}>Choose a camera or upload from your device</p>
+              <h3 style={styles.cardTitle}>Step 3: Upload Image & Analyze</h3>
+              <p style={styles.cameraSubtitle}>Capture using USB Dermoscope or upload a high-res image.</p>
               <div style={styles.cameraSourceGrid}>
                 <label style={{ ...styles.cameraSourceBtn, position: "relative" }}>
                   <span style={styles.cameraSourceIcon}>📁</span>
@@ -270,28 +326,6 @@ export default function NewScan() {
                   <span style={styles.cameraSourceHint}>USB dermatoscope</span>
                 </button>
               </div>
-              {availableCameras.length > 0 && (
-                <div style={styles.devicePickerRow}>
-                  <label style={styles.devicePickerLabel}>Manual device select:</label>
-                  <select
-                    style={styles.devicePickerSelect}
-                    value={selectedDeviceId}
-                    onChange={(e) => handleDeviceChange(e.target.value)}
-                  >
-                    <option value="">-- Select device --</option>
-                    {availableCameras.map((cam, i) => {
-                      const isUsb = DERM_KEYWORDS.some((kw) => (cam.label || "").toLowerCase().includes(kw));
-                      const tag = isUsb ? "🔬 USB" : "💻 Built-in";
-                      const label = cam.label || `Camera ${i + 1}`;
-                      return (
-                        <option key={cam.deviceId} value={cam.deviceId}>
-                          {tag} — {label}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-              )}
             </div>
           )}
 
@@ -302,7 +336,7 @@ export default function NewScan() {
               <canvas ref={canvasRef} style={{ display: "none" }} />
               <div style={styles.liveIndicator}>
                 <span style={styles.dot}></span>
-                {cameraMode === "dermoscope" ? "DERMOSCOPE LIVE" : "SYSTEM CAMERA LIVE"}
+                DERMOSCOPE LIVE
               </div>
               <div style={styles.cameraControls}>
                 <button style={styles.captureBtn} onClick={captureFrame}>⊙ Capture</button>
@@ -323,77 +357,24 @@ export default function NewScan() {
               </div>
             </div>
           )}
-
-          {/* Upload Actions removed as requested */}
+          
+          <button
+            onClick={handleUpload}
+            style={{ ...styles.submitBtn, opacity: (loading || !image || !patientId) ? 0.6 : 1, marginTop: "16px" }}
+            disabled={loading || !image || !patientId}
+          >
+            {loading ? "Running Multimodal AI Analysis..." : "Submit to Multimodal AI"}
+          </button>
         </div>
 
-        {/* Right: Form */}
-        <div style={styles.rightColumn}>
-          <div style={styles.card}>
-            <h3 style={styles.cardTitle}>Patient Details</h3>
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>Select Patient</label>
-              <select
-                style={styles.input}
-                value={patientId}
-                onChange={(e) => setPatientId(e.target.value)}
-              >
-                <option value="">-- Choose a patient --</option>
-                {patients.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} (Age: {p.age})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
 
-          <div style={styles.card}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-               <h3 style={{ ...styles.cardTitle, margin: 0 }}>Clinical Symptoms (Notes)</h3>
-               <button 
-                  onClick={toggleRecording} 
-                  style={{ 
-                    background: isRecording ? "var(--danger-light)" : "var(--bg-secondary)", 
-                    color: isRecording ? "var(--danger)" : "var(--text-main)", 
-                    border: "none", 
-                    borderRadius: "20px", 
-                    padding: "6px 12px", 
-                    cursor: "pointer", 
-                    display: "flex", 
-                    alignItems: "center", 
-                    gap: "6px",
-                    fontSize: "12px",
-                    fontWeight: "600"
-                  }}
-                  title={isRecording ? "Stop recording" : "Start voice dictation"}
-               >
-                 <span style={{ fontSize: "16px" }}>{isRecording ? "🛑" : "🎤"}</span>
-                 {isRecording ? "Recording..." : "Voice"}
-               </button>
-            </div>
-            <textarea
-              style={styles.textarea}
-              placeholder="Describe clinical observations, patient discomfort, or duration..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-            <button
-              onClick={handleUpload}
-              style={{ ...styles.submitBtn, opacity: (loading || !image || !patientId) ? 0.6 : 1 }}
-              disabled={loading || !image || !patientId}
-            >
-              {loading ? "Analyzing..." : "Initialize AI Analysis"}
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
 }
 
 const styles = {
-  container: { paddingTop: "20px" },
+  container: { paddingTop: "40px" },
   header: { marginBottom: "32px" },
   title: { fontSize: "28px", fontWeight: "700", color: "var(--text-main)", marginBottom: "8px", letterSpacing: "-0.5px" },
   subtitle: { fontSize: "15px", color: "var(--text-muted)", maxWidth: "600px", lineHeight: "1.5" },
@@ -402,7 +383,9 @@ const styles = {
   leftColumn: { display: "flex", flexDirection: "column", gap: "16px" },
 
   cameraSourceCard: { background: "var(--card-bg)", borderRadius: "16px", padding: "24px", boxShadow: "var(--shadow-sm)" },
-  cardTitle: { fontSize: "16px", fontWeight: "600", color: "var(--text-main)", marginBottom: "8px" },
+  cardTitle: { fontSize: "16px", fontWeight: "600", color: "var(--text-main)", marginBottom: "16px" },
+  optionalBadge: { fontSize: "11px", fontWeight: "600", color: "#6b7280", background: "#f3f4f6", padding: "3px 8px", borderRadius: "8px", letterSpacing: "0.3px" },
+  optionalInline: { fontSize: "12px", fontWeight: "500", color: "#9ca3af", fontStyle: "italic" },
   cameraSubtitle: { fontSize: "13px", color: "var(--text-muted)", marginBottom: "20px" },
   cameraSourceGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "20px" },
   cameraSourceBtn: {
@@ -452,8 +435,10 @@ const styles = {
   rightColumn: { display: "flex", flexDirection: "column", gap: "24px" },
   card: { background: "var(--card-bg)", borderRadius: "16px", padding: "24px", boxShadow: "var(--shadow-sm)" },
   inputGroup: { display: "flex", flexDirection: "column", gap: "6px" },
-  label: { fontSize: "13px", fontWeight: "500", color: "var(--text-muted)" },
+  label: { fontSize: "13px", fontWeight: "600", color: "var(--text-main)" },
   input: { padding: "12px 16px", borderRadius: "10px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-secondary)", color: "var(--text-main)", fontSize: "14px", outline: "none" },
-  textarea: { width: "100%", minHeight: "120px", padding: "16px", borderRadius: "10px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-secondary)", color: "var(--text-main)", fontSize: "14px", outline: "none", resize: "vertical", marginBottom: "16px" },
-  submitBtn: { width: "100%", padding: "14px 0", borderRadius: "12px", border: "none", background: "var(--primary)", color: "#fff", fontSize: "15px", fontWeight: "600", cursor: "pointer", transition: "opacity 0.2s" },
+  textarea: { width: "100%", minHeight: "80px", padding: "12px", borderRadius: "10px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-secondary)", color: "var(--text-main)", fontSize: "14px", outline: "none", resize: "vertical" },
+  submitBtn: { width: "100%", padding: "16px 0", borderRadius: "12px", border: "none", background: "linear-gradient(135deg, #10b981, #059669)", color: "#fff", fontSize: "16px", fontWeight: "700", cursor: "pointer", transition: "all 0.2s", boxShadow: "0 4px 14px rgba(16,185,129,0.3)" },
+  symptomGrid: { display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "4px" },
+  symptomPill: { padding: "8px 14px", borderRadius: "20px", fontSize: "12px", fontWeight: "600", cursor: "pointer", transition: "all 0.2s", border: "1px solid var(--border-color)" },
 };

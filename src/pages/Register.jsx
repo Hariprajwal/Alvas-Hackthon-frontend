@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { registerUser } from "../services/api";
 
 const ROLES = [
   { role:"doctor",  label:"Doctor",        icon:"stethoscope",      desc:"Clinical review & AI analysis" },
@@ -22,18 +23,26 @@ export default function Register() {
     return s;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      localStorage.setItem("access_token",  "fake_token");
-      localStorage.setItem("refresh_token", "fake_refresh");
-      localStorage.setItem("user_name",     form.username || "User");
-      localStorage.setItem("user_id",       "1");
-      localStorage.setItem("user_role",     form.role);
+    try {
+      const res = await registerUser(form);
+      const data = res.data.data;
+      localStorage.setItem("access_token",  data.access);
+      localStorage.setItem("refresh_token", data.refresh);
+      localStorage.setItem("user_name",     data.user_name);
+      localStorage.setItem("user_id",       data.user_id);
+      localStorage.setItem("user_role",     data.role);
+      
       const dest = { doctor:"/dashboard", nurse:"/nurse/dashboard", patient:"/patient/dashboard" };
-      navigate(dest[form.role] || "/dashboard");
-    }, 700);
+      navigate(dest[data.role] || "/dashboard");
+    } catch (err) {
+      console.error(err);
+      alert("Registration failed. Please try a different username.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const strengthColor = ["#ef4444","#f59e0b","#10b981"][pwStrength - 1] || "var(--c-outline-variant)";

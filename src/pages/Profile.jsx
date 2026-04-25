@@ -85,7 +85,7 @@ export default function Profile() {
   };
 
   return (
-    <div className="pt-24 px-6 md:px-12 pb-12 max-w-4xl mx-auto w-full flex flex-col gap-7 fade-in">
+    <div className="pt-8 px-6 md:px-12 pb-12 max-w-4xl mx-auto w-full flex flex-col gap-7 fade-in">
 
       {/* Back */}
       <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-on-surface-variant hover:text-primary text-sm font-semibold transition-colors w-fit">

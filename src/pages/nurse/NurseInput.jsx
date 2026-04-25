@@ -7,6 +7,9 @@ const SYMPTOMS = [
   "Size increase", "Rough texture", "Discharge", "Swelling", "Ulceration"
 ];
 const DURATIONS = ["< 1 week", "1–2 weeks", "2–4 weeks", "1–3 months", "3–6 months", "> 6 months"];
+const FAMILY_HISTORY_OPTIONS = [
+  "Melanoma", "Basal Cell Carcinoma", "Skin Cancer (Other)", "None"
+];
 
 export default function NurseInput() {
   const navigate = useNavigate();
@@ -14,8 +17,10 @@ export default function NurseInput() {
   const [patientId, setPatientId]     = useState(localStorage.getItem("scan_patient") || "");
   const [selected, setSelected]       = useState([]);
   const [duration, setDuration]       = useState("");
+  const [familyHistorySelected, setFamilyHistorySelected] = useState([]);
   const [freeText, setFreeText]       = useState("");
   const [isRecording, setIsRecording] = useState(false);
+  const [lang, setLang]               = useState("en-US"); // Default English
   const recognitionRef = useRef(null);
 
   useEffect(() => {
@@ -24,6 +29,7 @@ export default function NurseInput() {
     if (SR) {
       const rec = new SR();
       rec.continuous = true; rec.interimResults = true;
+      rec.lang = lang; // Set based on selection
       rec.onresult = e => {
         let t = "";
         for (let i = e.resultIndex; i < e.results.length; i++)
@@ -33,20 +39,32 @@ export default function NurseInput() {
       rec.onend = () => setIsRecording(false);
       recognitionRef.current = rec;
     }
-  }, []);
+  }, [lang]); // Re-init when language changes
 
   const toggleSymptom = s => setSelected(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+  const toggleFamilyHistory = f => setFamilyHistorySelected(prev => {
+    if (f === "None") return ["None"];
+    const withoutNone = prev.filter(x => x !== "None");
+    return withoutNone.includes(f) ? withoutNone.filter(x => x !== f) : [...withoutNone, f];
+  });
 
   const handleNext = () => {
     if (!patientId) return alert("Please select a patient.");
     const notes = [
       selected.length ? `Symptoms: ${selected.join(", ")}` : "",
       duration        ? `Duration: ${duration}` : "",
+      familyHistorySelected.length ? `Family History: ${familyHistorySelected.join(", ")}` : "",
       freeText.trim() ? `Notes: ${freeText.trim()}` : ""
     ].filter(Boolean).join(". ");
+    
     localStorage.setItem("scan_patient", patientId);
     localStorage.setItem("scan_notes", notes);
-    navigate("/nurse/result");
+    
+    // Save raw symptoms and family history for the AI Engine
+    localStorage.setItem("scan_symptoms_raw", JSON.stringify(selected));
+    localStorage.setItem("scan_family_history_raw", familyHistorySelected.join(", "));
+    
+    navigate("/nurse/scan");
   };
 
   const toggleVoice = () => {
@@ -56,7 +74,7 @@ export default function NurseInput() {
   };
 
   return (
-    <div className="pt-24 px-6 md:px-10 pb-12 max-w-3xl mx-auto w-full flex flex-col gap-7 fade-in">
+    <div className="pt-8 px-6 md:px-10 pb-12 max-w-3xl mx-auto w-full flex flex-col gap-7 fade-in">
       <div>
         <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-on-surface-variant hover:text-primary text-sm font-semibold mb-4 transition-colors">
           <span className="material-symbols-outlined text-sm">arrow_back</span> Back
@@ -113,18 +131,39 @@ export default function NurseInput() {
         </div>
       </div>
 
+      {/* Family History */}
+      <div className="bg-surface-container-lowest rounded-[1.5rem] p-6">
+        <h3 className="font-headline text-base font-semibold text-on-surface mb-4">Family History (Dermatological)</h3>
+        <div className="flex flex-wrap gap-2.5">
+          {FAMILY_HISTORY_OPTIONS.map(f => (
+            <button key={f} onClick={() => toggleFamilyHistory(f)}
+              className={`px-4 py-2 rounded-full text-sm font-semibold border-2 transition-all ${
+                familyHistorySelected.includes(f)
+                  ? "bg-primary border-primary text-white shadow-md"
+                  : "border-surface-variant text-on-surface-variant hover:border-primary hover:text-primary bg-surface-container-low"
+              }`}>{f}</button>
+          ))}
+        </div>
+      </div>
+
       {/* Free text + Voice */}
       <div className="bg-surface-container-lowest rounded-[1.5rem] p-6">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-headline text-base font-semibold text-on-surface">Additional Notes</h3>
+          <div className="flex items-center gap-3">
+            <h3 className="font-headline text-base font-semibold text-on-surface">Additional Notes</h3>
+            <div className="flex bg-surface-container-low rounded-lg p-1">
+                <button onClick={() => setLang("en-US")} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${lang === "en-US" ? "bg-primary text-white" : "text-on-surface-variant hover:text-primary"}`}>EN</button>
+                <button onClick={() => setLang("kn-IN")} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${lang === "kn-IN" ? "bg-primary text-white" : "text-on-surface-variant hover:text-primary"}`}>ಕನ್ನಡ</button>
+            </div>
+          </div>
           <button onClick={toggleVoice}
             className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
-              isRecording ? "bg-error-container text-error" : "bg-surface-container-low text-on-surface-variant hover:text-primary"
+              isRecording ? "bg-error-container text-error animate-pulse" : "bg-surface-container-low text-on-surface-variant hover:text-primary"
             }`}>
             <span className="material-symbols-outlined text-base" style={{ fontVariationSettings:"'FILL' 1" }}>
               {isRecording ? "stop_circle" : "mic"}
             </span>
-            {isRecording ? "Stop" : "Voice"}
+            {isRecording ? "Recording..." : "Voice Input"}
           </button>
         </div>
         <textarea rows={4} value={freeText} onChange={e => setFreeText(e.target.value)}
@@ -134,7 +173,7 @@ export default function NurseInput() {
 
       <button onClick={handleNext}
         className="w-full bg-primary text-white font-headline font-semibold py-4 rounded-full text-base shadow-lg hover:opacity-90 transition-all flex items-center justify-center gap-2">
-        View AI Result <span className="material-symbols-outlined">arrow_forward</span>
+        Scan Image <span className="material-symbols-outlined">camera_alt</span>
       </button>
     </div>
   );

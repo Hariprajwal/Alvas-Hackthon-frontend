@@ -65,6 +65,9 @@ export const createScan = (formData) =>
   API.post("scans/", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
+export const escalateScan = (scanId, data) => API.post(`scans/${scanId}/escalate/`, data);
+export const reviewScan = (scanId, data) => API.post(`scans/${scanId}/review/`, data);
+export const getPrescriptions = (params) => API.get("prescriptions/", { params });
 
 // ── Report helpers (nurse) ──
 export const getReports = (params) => API.get("reports/", { params });

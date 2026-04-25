@@ -18,9 +18,11 @@ const NAV_ITEMS = {
     { to: "/settings",        icon: "settings",     label: "Settings" },
   ],
   patient: [
-    { to: "/patient/dashboard", icon: "home", label: "My Dashboard" },
-    { to: "/patient/appointments", icon: "calendar_month", label: "Appointments" },
-    { to: "/settings", icon: "settings", label: "Settings" },
+    { to: "/patient/dashboard", icon: "home",          label: "My Dashboard" },
+    { to: "/patient/scan",      icon: "biotech",        label: "New Scan" },
+    { to: "/patient/chat",      icon: "smart_toy",      label: "AI Assistant" },
+    { to: "/patient/reports",   icon: "analytics",      label: "My Reports" },
+    { to: "/settings",          icon: "settings",       label: "Settings" },
   ],
 };
 

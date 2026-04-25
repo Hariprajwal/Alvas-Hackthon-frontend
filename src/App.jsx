@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
@@ -9,6 +10,8 @@ import Insights from "./pages/Insights";
 import PatientHistory from "./pages/PatientHistory";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
+import EHRProfileForm from "./pages/EHRProfileForm";
+import AdminDashboard from "./pages/AdminDashboard";
 import Layout from "./components/Layout";
 
 // Nurse pages
@@ -23,6 +26,9 @@ import NurseSubmit from "./pages/nurse/NurseSubmit";
 // Patient pages
 import PatientDashboard from "./pages/patient/PatientDashboard";
 import PatientAppointments from "./pages/patient/PatientAppointments";
+import PatientScan from "./pages/patient/PatientScan";
+import PatientChat from "./pages/patient/PatientChat";
+import PatientReports from "./pages/patient/PatientReports";
 
 // Auth guard — redirects to login if no token
 function PrivateRoute({ children }) {
@@ -42,6 +48,14 @@ function RoleRoute({ children, allowedRoles }) {
 }
 
 function App() {
+  useEffect(() => {
+    // Force logout if stuck in a stale "fake_token" session from the old demo logic
+    if (localStorage.getItem("access_token") === "fake_token") {
+      localStorage.clear();
+      window.location.href = "/login";
+    }
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>
@@ -56,6 +70,7 @@ function App() {
         <Route path="/patients/:patientId/history" element={<PrivateRoute><RoleRoute allowedRoles={["doctor"]}><PatientHistory /></RoleRoute></PrivateRoute>} />
         <Route path="/scan" element={<PrivateRoute><RoleRoute allowedRoles={["doctor"]}><NewScan /></RoleRoute></PrivateRoute>} />
         <Route path="/insights" element={<PrivateRoute><RoleRoute allowedRoles={["doctor"]}><Insights /></RoleRoute></PrivateRoute>} />
+        <Route path="/admin" element={<PrivateRoute><RoleRoute allowedRoles={["doctor"]}><AdminDashboard /></RoleRoute></PrivateRoute>} />
 
         {/* Nurse routes */}
         <Route path="/nurse/dashboard" element={<PrivateRoute><RoleRoute allowedRoles={["nurse"]}><NurseDashboard /></RoleRoute></PrivateRoute>} />
@@ -67,12 +82,16 @@ function App() {
         <Route path="/nurse/submit" element={<PrivateRoute><RoleRoute allowedRoles={["nurse"]}><NurseSubmit /></RoleRoute></PrivateRoute>} />
 
         {/* Patient routes */}
-        <Route path="/patient/dashboard" element={<PrivateRoute><RoleRoute allowedRoles={["patient"]}><PatientDashboard /></RoleRoute></PrivateRoute>} />
+        <Route path="/patient/dashboard"    element={<PrivateRoute><RoleRoute allowedRoles={["patient"]}><PatientDashboard    /></RoleRoute></PrivateRoute>} />
         <Route path="/patient/appointments" element={<PrivateRoute><RoleRoute allowedRoles={["patient"]}><PatientAppointments /></RoleRoute></PrivateRoute>} />
+        <Route path="/patient/scan"         element={<PrivateRoute><RoleRoute allowedRoles={["patient"]}><PatientScan         /></RoleRoute></PrivateRoute>} />
+        <Route path="/patient/chat"         element={<PrivateRoute><RoleRoute allowedRoles={["patient"]}><PatientChat         /></RoleRoute></PrivateRoute>} />
+        <Route path="/patient/reports"      element={<PrivateRoute><RoleRoute allowedRoles={["patient"]}><PatientReports      /></RoleRoute></PrivateRoute>} />
 
         {/* Shared routes (all roles) */}
         <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
         <Route path="/profile"  element={<PrivateRoute><Profile  /></PrivateRoute>} />
+        <Route path="/ehr-setup" element={<PrivateRoute><EHRProfileForm /></PrivateRoute>} />
       </Routes>
     </BrowserRouter>
   );

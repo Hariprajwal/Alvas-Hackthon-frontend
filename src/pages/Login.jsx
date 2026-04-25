@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { loginUser } from "../services/api";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -8,18 +9,26 @@ export default function Login() {
   const [error, setError]     = useState("");
   const [showPw, setShowPw]   = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    setTimeout(() => {
-      localStorage.setItem("access_token",  "fake_token");
-      localStorage.setItem("refresh_token", "fake_refresh");
-      localStorage.setItem("user_name",     form.username || "Doctor");
-      localStorage.setItem("user_id",       "1");
-      localStorage.setItem("user_role",     "doctor");
+    try {
+      const res = await loginUser(form);
+      const data = res.data.data;
+      localStorage.setItem("access_token",  data.access);
+      localStorage.setItem("refresh_token", data.refresh);
+      localStorage.setItem("user_name",     data.user_name);
+      localStorage.setItem("user_id",       data.user_id);
+      localStorage.setItem("user_role",     data.role);
+      
       navigate("/dashboard");
-    }, 700);
+    } catch (err) {
+      console.error(err);
+      setError("Invalid username or password.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -150,12 +159,31 @@ export default function Login() {
                 { role:"patient", label:"Patient",       icon:"person" },
               ].map(r => (
                 <button key={r.role} type="button"
-                  onClick={() => {
-                    localStorage.setItem("access_token","fake_token");
-                    localStorage.setItem("user_name", form.username || r.label);
-                    localStorage.setItem("user_role", r.role);
-                    const dest = { doctor:"/dashboard", nurse:"/nurse/dashboard", patient:"/patient/dashboard" };
-                    navigate(dest[r.role]);
+                  onClick={async () => {
+                    setLoading(true);
+                    setError("");
+                    try {
+                      // Demo credentials from populate_db.py
+                      const creds = {
+                        doctor: { username: "doctor",  password: "password123" },
+                        nurse:  { username: "nurse",   password: "password123" },
+                        patient: { username: "patient", password: "password123" },
+                      };
+                      const res = await loginUser(creds[r.role]);
+                      const data = res.data.data;
+                      localStorage.setItem("access_token",  data.access);
+                      localStorage.setItem("refresh_token", data.refresh);
+                      localStorage.setItem("user_name",     data.user_name);
+                      localStorage.setItem("user_id",       data.user_id);
+                      localStorage.setItem("user_role",     data.role);
+                      const dest = { doctor:"/dashboard", nurse:"/nurse/dashboard", patient:"/patient/dashboard" };
+                      navigate(dest[r.role]);
+                    } catch (err) {
+                      console.error(err);
+                      setError("Demo login failed. Ensure database is populated.");
+                    } finally {
+                      setLoading(false);
+                    }
                   }}
                   style={{
                     flex:1, padding:"10px 8px", borderRadius:10,

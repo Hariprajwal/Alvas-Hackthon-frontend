@@ -58,7 +58,7 @@ export default function Topbar() {
             {userName.charAt(0).toUpperCase()}
           </div>
           <div className="hidden md:flex flex-col items-start leading-tight">
-            <span className="text-on-surface font-semibold text-sm">{userName}</span>
+            <span className="text-on-surface font-semibold text-sm">{userName.charAt(0).toUpperCase() + userName.slice(1)}</span>
             <span className="text-on-surface-variant text-xs capitalize">{userRole}</span>
           </div>
         </button>

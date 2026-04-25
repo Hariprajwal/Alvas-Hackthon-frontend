@@ -18,14 +18,14 @@ export default function NurseResult() {
   const category = result?.risk_category ?? (score >= 67 ? "HIGH" : score >= 44 ? "MEDIUM" : "LOW");
 
   const riskConfig = {
-    HIGH:   { color: "text-error",     bg: "bg-error-container",           icon: "emergency",     label: "High Risk — Immediate Action Required",  border: "border-error" },
-    MEDIUM: { color: "text-amber-700", bg: "bg-amber-100",                  icon: "warning",       label: "Moderate Risk — Monitor Closely",        border: "border-amber-400" },
-    LOW:    { color: "text-primary",   bg: "bg-primary-container/30",       icon: "check_circle",  label: "Low Risk — Auto Resolved",               border: "border-primary" },
+    HIGH:   { color: "text-error",     bg: "bg-error-container",           icon: "emergency",     label: "Critical — Immediate Doctor Referral Required",  border: "border-error" },
+    MEDIUM: { color: "text-amber-700", bg: "bg-amber-100",                  icon: "warning",       label: "Moderate — Monitor Closely",        border: "border-amber-400" },
+    LOW:    { color: "text-primary",   bg: "bg-primary-container/30",       icon: "check_circle",  label: "Stable — Auto Resolved",               border: "border-primary" },
   };
   const cfg = riskConfig[category] || riskConfig.LOW;
 
   return (
-    <div className="pt-24 px-6 md:px-10 pb-12 max-w-2xl mx-auto w-full flex flex-col gap-7 fade-in">
+    <div className="pt-8 px-6 md:px-10 pb-12 max-w-2xl mx-auto w-full flex flex-col gap-7 fade-in">
       <div>
         <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-on-surface-variant hover:text-primary text-sm font-semibold mb-4 transition-colors">
           <span className="material-symbols-outlined text-sm">arrow_back</span> Back

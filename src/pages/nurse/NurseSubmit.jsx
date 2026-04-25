@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createScan } from "../../services/api";
+import { createScan, escalateScan } from "../../services/api";
 
 export default function NurseSubmit() {
   const navigate  = useNavigate();
@@ -20,14 +20,21 @@ export default function NurseSubmit() {
   const handleSubmit = async () => {
     setStatus("sending");
     try {
-      // We tag the scan with a doctor_note so the doctor sees it in their queue
+      if (!lastResult?.id) {
+        throw new Error("No scan ID found");
+      }
+      
       const combinedNote = [notes, extraNote.trim() ? `Nurse message: ${extraNote.trim()}` : ""].filter(Boolean).join(" | ");
-      // In real app: call dedicated escalation API. Here we update via notes.
+      await escalateScan(lastResult.id, { notes: combinedNote, urgency });
+      
+      // Still set local storage for any local tracking if needed, though backend is now source of truth
       localStorage.setItem("escalated_case", JSON.stringify({
         patientId, disease, score, category, notes: combinedNote, urgency, timestamp: new Date().toISOString()
       }));
-      setTimeout(() => setStatus("sent"), 900);
-    } catch {
+      
+      setStatus("sent");
+    } catch (err) {
+      console.error("Escalation failed:", err);
       setStatus("error");
     }
   };
@@ -64,7 +71,7 @@ export default function NurseSubmit() {
   );
 
   return (
-    <div className="pt-24 px-6 md:px-10 pb-12 max-w-2xl mx-auto w-full flex flex-col gap-7 fade-in">
+    <div className="pt-8 px-6 md:px-10 pb-12 max-w-2xl mx-auto w-full flex flex-col gap-7 fade-in">
       <div>
         <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-on-surface-variant hover:text-primary text-sm font-semibold mb-4 transition-colors">
           <span className="material-symbols-outlined text-sm">arrow_back</span> Back
